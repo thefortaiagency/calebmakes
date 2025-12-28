@@ -555,22 +555,52 @@ export default function CreatePage() {
 
         {/* Right Panel - Print Analysis */}
         {showAnalysis && (
-          <div className={`border-l border-gray-800 bg-gray-900/50 hidden lg:flex lg:flex-col transition-all duration-200 ${
-            analysisWidth === "full" ? "w-[500px]" : analysisWidth === "wide" ? "w-96" : "w-80"
-          }`}>
+          <div
+            className={`flex-shrink-0 border-l border-gray-800 bg-gray-900/50 hidden lg:flex lg:flex-col transition-all duration-200`}
+            style={{ width: analysisWidth === "full" ? 500 : analysisWidth === "wide" ? 384 : 320 }}
+          >
             <div className="flex items-center justify-between p-3 border-b border-gray-800">
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-cyan-400" />
                 <h3 className="text-sm font-semibold text-gray-300">Print Analysis</h3>
               </div>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setAnalysisWidth(analysisWidth === "full" ? "normal" : analysisWidth === "wide" ? "full" : "wide")}
-                  className="p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
-                  title={analysisWidth === "full" ? "Minimize panel" : "Expand panel"}
-                >
-                  {analysisWidth === "full" ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                </button>
+                {/* Width toggle buttons */}
+                <div className="flex items-center bg-gray-800 rounded overflow-hidden mr-1">
+                  <button
+                    onClick={() => setAnalysisWidth("normal")}
+                    className={`px-2 py-1 text-xs transition-colors ${
+                      analysisWidth === "normal"
+                        ? "bg-cyan-600 text-white"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                    title="Small width"
+                  >
+                    S
+                  </button>
+                  <button
+                    onClick={() => setAnalysisWidth("wide")}
+                    className={`px-2 py-1 text-xs transition-colors ${
+                      analysisWidth === "wide"
+                        ? "bg-cyan-600 text-white"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                    title="Medium width"
+                  >
+                    M
+                  </button>
+                  <button
+                    onClick={() => setAnalysisWidth("full")}
+                    className={`px-2 py-1 text-xs transition-colors ${
+                      analysisWidth === "full"
+                        ? "bg-cyan-600 text-white"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                    title="Large width"
+                  >
+                    L
+                  </button>
+                </div>
                 <button
                   onClick={() => setShowAnalysis(false)}
                   className="p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
