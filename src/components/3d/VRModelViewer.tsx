@@ -1,8 +1,8 @@
 "use client"
 
-import { Suspense, useMemo, useEffect, useState, useRef } from "react"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { XR, createXRStore, XROrigin, useXR, Interactive } from "@react-three/xr"
+import { Suspense, useMemo, useEffect, useState, useRef, useCallback } from "react"
+import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber"
+import { XR, createXRStore, XROrigin, useXR } from "@react-three/xr"
 import { Grid, Environment, Html, useProgress, Text, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 import { useModelStore } from "@/lib/store"
@@ -12,9 +12,7 @@ import type { GeometryData } from "@/lib/types"
 const xrStore = createXRStore({
   foveation: 0,
   frameRate: "high",
-  // Enable hand tracking (default is true, but being explicit)
   hand: true,
-  // Enable controllers too
   controller: true,
 })
 
@@ -85,22 +83,31 @@ function useModelBounds(bufferGeometry: THREE.BufferGeometry | null) {
 interface VRModelProps {
   geometry: GeometryData
   color: string
-  scale: number
+  initialScale: number
+  onScaleChange?: (scale: number) => void
 }
 
-function VRModel({ geometry, color, scale }: VRModelProps) {
+function VRModel({ geometry, color, initialScale, onScaleChange }: VRModelProps) {
   const bufferGeometry = useBufferGeometry(geometry)
   const bounds = useModelBounds(bufferGeometry)
   const groupRef = useRef<THREE.Group>(null)
-  const { camera } = useThree()
+  const meshRef = useRef<THREE.Mesh>(null)
+  const { gl } = useThree()
   const xrState = useXR()
   const isInVR = !!xrState.session
 
   // VR grab state
   const [isGrabbed, setIsGrabbed] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-  const grabOffset = useRef(new THREE.Vector3())
-  const activeController = useRef<THREE.Object3D | null>(null)
+
+  // Dynamic scale for VR manipulation
+  const [modelScale, setModelScale] = useState(initialScale)
+  const scaleRef = useRef(initialScale)
+
+  // Grab tracking
+  const grabStartPoint = useRef<THREE.Vector3 | null>(null)
+  const grabStartPosition = useRef(new THREE.Vector3())
+  const lastControllerPosition = useRef<THREE.Vector3 | null>(null)
 
   // Model position offset (controlled by arrow keys or VR grab)
   const offset = useRef({ x: 0, y: 0, z: 0 })
@@ -110,6 +117,7 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
     arrowUp: false, arrowDown: false, arrowLeft: false, arrowRight: false,
     r: false, // hold R to rotate instead of move
     pageUp: false, pageDown: false, // vertical movement
+    plus: false, minus: false, // scale controls
   })
 
   useEffect(() => {
@@ -121,6 +129,8 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
       if (e.key === 'r' || e.key === 'R') keys.current.r = true
       if (e.key === 'PageUp') keys.current.pageUp = true
       if (e.key === 'PageDown') keys.current.pageDown = true
+      if (e.key === '+' || e.key === '=') keys.current.plus = true
+      if (e.key === '-' || e.key === '_') keys.current.minus = true
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -131,6 +141,8 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
       if (e.key === 'r' || e.key === 'R') keys.current.r = false
       if (e.key === 'PageUp') keys.current.pageUp = false
       if (e.key === 'PageDown') keys.current.pageDown = false
+      if (e.key === '+' || e.key === '=') keys.current.plus = false
+      if (e.key === '-' || e.key === '_') keys.current.minus = false
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -142,63 +154,65 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
     }
   }, [])
 
-  // Handle VR controller/hand grab
-  const handleSelectStart = (e: any) => {
+  // Get controller position from XR session - this is the v6 way
+  const getControllerPosition = useCallback((): THREE.Vector3 | null => {
+    if (!xrState.session) return null
+
+    // Access the XR frame to get input sources
+    const session = xrState.session
+    const frame = (gl.xr as any).getFrame?.()
+    const referenceSpace = (gl.xr as any).getReferenceSpace?.()
+
+    if (!frame || !referenceSpace) return null
+
+    // Get input sources from the session
+    const inputSources = session.inputSources
+
+    for (const inputSource of inputSources) {
+      // Prefer grip space for natural hand position
+      const space = inputSource.gripSpace || inputSource.targetRaySpace
+      if (space) {
+        const pose = frame.getPose(space, referenceSpace)
+        if (pose) {
+          const pos = pose.transform.position
+          return new THREE.Vector3(pos.x, pos.y, pos.z)
+        }
+      }
+    }
+
+    return null
+  }, [xrState.session, gl])
+
+  // Handle pointer down on mesh (works in both VR and desktop)
+  const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
     if (!groupRef.current) return
+    e.stopPropagation()
+
     setIsGrabbed(true)
 
-    // In @react-three/xr v6, we need to find the controller object
-    // Try multiple ways to get the input source's 3D object
-    let controllerObject: THREE.Object3D | null = null
+    // Store the grab start point (intersection point)
+    if (e.point) {
+      grabStartPoint.current = e.point.clone()
+      grabStartPosition.current.copy(groupRef.current.position)
 
-    // Method 1: Direct controller reference from event
-    if (e.controller) {
-      controllerObject = e.controller
-    }
-    // Method 2: From inputSource grip space
-    else if (e.inputSource?.gripSpace) {
-      // We need to find the Object3D that corresponds to this grip space
-      // This is typically the e.target for Interactive events
-      controllerObject = e.target
-    }
-    // Method 3: From target directly (Interactive wraps the mesh)
-    else if (e.target && e.target instanceof THREE.Object3D) {
-      // Walk up to find the controller group
-      let obj: THREE.Object3D | null = e.target
-      while (obj && !obj.userData?.inputSource) {
-        obj = obj.parent
-      }
-      controllerObject = obj
-    }
-    // Method 4: Use the intersection point and create a dummy tracker
-    else if (e.intersection?.point) {
-      // Create a dummy object at the intersection point
-      const dummy = new THREE.Object3D()
-      dummy.position.copy(e.intersection.point)
-      controllerObject = dummy
-    }
-
-    activeController.current = controllerObject
-
-    // Calculate offset from controller/hand to model (in world space)
-    if (activeController.current) {
-      const controllerWorldPos = new THREE.Vector3()
-      activeController.current.getWorldPosition(controllerWorldPos)
-      grabOffset.current.copy(groupRef.current.position).sub(controllerWorldPos)
-      console.log("VR Grab started, controller at:", controllerWorldPos)
-    } else {
-      // Fallback: use intersection point directly
-      if (e.intersection?.point) {
-        grabOffset.current.copy(groupRef.current.position).sub(e.intersection.point)
-        console.log("VR Grab started with intersection fallback")
+      // Try to get controller position for VR
+      const controllerPos = getControllerPosition()
+      if (controllerPos) {
+        lastControllerPosition.current = controllerPos.clone()
+      } else {
+        lastControllerPosition.current = e.point.clone()
       }
     }
-  }
 
-  const handleSelectEnd = () => {
+    console.log("Grab started at:", e.point)
+  }, [getControllerPosition])
+
+  const handlePointerUp = useCallback((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation()
     setIsGrabbed(false)
-    activeController.current = null
-    console.log("VR Grab ended")
+    grabStartPoint.current = null
+    lastControllerPosition.current = null
+    console.log("Grab ended")
 
     // Update the offset ref to current position so keyboard controls work from here
     if (groupRef.current) {
@@ -206,66 +220,116 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
       offset.current.y = groupRef.current.position.y
       offset.current.z = groupRef.current.position.z
     }
-  }
+  }, [])
 
-  // Handle pinch gesture from hands (squeeze event)
-  const handleSqueezeStart = (e: any) => {
-    handleSelectStart(e) // Same behavior as trigger
-  }
+  const handlePointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
+    if (!isGrabbed || !groupRef.current || !grabStartPoint.current) return
+    e.stopPropagation()
 
-  const handleSqueezeEnd = () => {
-    handleSelectEnd() // Same behavior as trigger release
-  }
+    // In VR, track controller movement
+    if (isInVR) {
+      const currentPos = getControllerPosition()
+      if (currentPos && lastControllerPosition.current) {
+        const delta = currentPos.clone().sub(lastControllerPosition.current)
+        groupRef.current.position.add(delta)
+        lastControllerPosition.current = currentPos.clone()
+      }
+    } else {
+      // Desktop: use pointer delta
+      if (e.point) {
+        const delta = e.point.clone().sub(grabStartPoint.current)
+        groupRef.current.position.copy(grabStartPosition.current.clone().add(delta))
+      }
+    }
+  }, [isGrabbed, isInVR, getControllerPosition])
+
+  // Listen for VR controller events via the XR session
+  useEffect(() => {
+    if (!xrState.session) return
+
+    const session = xrState.session
+
+    // Handle select (trigger press)
+    const handleSelectStart = () => {
+      if (!groupRef.current) return
+      setIsGrabbed(true)
+
+      const controllerPos = getControllerPosition()
+      if (controllerPos) {
+        grabStartPosition.current.copy(groupRef.current.position)
+        lastControllerPosition.current = controllerPos.clone()
+      }
+      console.log("VR Select started")
+    }
+
+    const handleSelectEnd = () => {
+      setIsGrabbed(false)
+      lastControllerPosition.current = null
+
+      if (groupRef.current) {
+        offset.current.x = groupRef.current.position.x
+        offset.current.y = groupRef.current.position.y
+        offset.current.z = groupRef.current.position.z
+      }
+      console.log("VR Select ended")
+    }
+
+    // Handle squeeze (grip press) - use for scaling
+    // Cycles: initial -> 2x -> 4x -> 8x -> reset
+    const handleSqueezeStart = () => {
+      const maxScale = initialScale * 8
+      if (scaleRef.current >= maxScale * 0.9) {
+        // Reset to initial
+        scaleRef.current = initialScale
+        console.log("Scale reset to initial:", scaleRef.current)
+      } else {
+        // Enlarge 2x
+        scaleRef.current = Math.min(scaleRef.current * 2, maxScale)
+        console.log("Scale increased to:", scaleRef.current)
+      }
+      setModelScale(scaleRef.current)
+      onScaleChange?.(scaleRef.current)
+    }
+
+    session.addEventListener('selectstart', handleSelectStart)
+    session.addEventListener('selectend', handleSelectEnd)
+    session.addEventListener('squeezestart', handleSqueezeStart)
+
+    return () => {
+      session.removeEventListener('selectstart', handleSelectStart)
+      session.removeEventListener('selectend', handleSelectEnd)
+      session.removeEventListener('squeezestart', handleSqueezeStart)
+    }
+  }, [xrState.session, getControllerPosition, onScaleChange])
 
   useFrame((state, delta) => {
     if (!groupRef.current) return
 
     const moveSpeed = delta * 0.5
     const rotateSpeed = delta * 1.5
+    const scaleSpeed = delta * 2
 
-    // VR grab handling - follow controller position
+    // VR grab handling - follow controller position each frame
     if (isGrabbed && isInVR) {
-      let controllerWorldPos: THREE.Vector3 | null = null
-      let controllerWorldQuat: THREE.Quaternion | null = null
-
-      // Try to get controller position from activeController ref
-      if (activeController.current) {
-        controllerWorldPos = new THREE.Vector3()
-        activeController.current.getWorldPosition(controllerWorldPos)
-        controllerWorldQuat = new THREE.Quaternion()
-        activeController.current.getWorldQuaternion(controllerWorldQuat)
+      const currentPos = getControllerPosition()
+      if (currentPos && lastControllerPosition.current) {
+        const delta = currentPos.clone().sub(lastControllerPosition.current)
+        groupRef.current.position.add(delta)
+        lastControllerPosition.current = currentPos.clone()
       }
-
-      // Fallback: Try to get from XR state controllers
-      if (!controllerWorldPos && xrState.session) {
-        // Access controllers through the XR frame
-        const controllers = (xrState as any).controllers
-        if (controllers && controllers.length > 0) {
-          const controller = controllers[0]
-          if (controller?.controller) {
-            controllerWorldPos = new THREE.Vector3()
-            controller.controller.getWorldPosition(controllerWorldPos)
-            controllerWorldQuat = new THREE.Quaternion()
-            controller.controller.getWorldQuaternion(controllerWorldQuat)
-            // Update active controller ref for next frame
-            activeController.current = controller.controller
-          }
-        }
-      }
-
-      // If we have a valid position, move the model
-      if (controllerWorldPos) {
-        // Move model to follow controller (plus original offset)
-        const newPos = controllerWorldPos.clone().add(grabOffset.current)
-        groupRef.current.position.copy(newPos)
-
-        // Optionally match controller rotation for more natural feel
-        if (controllerWorldQuat) {
-          groupRef.current.quaternion.copy(controllerWorldQuat)
-        }
-      }
-
       return // Skip keyboard controls while VR grabbing
+    }
+
+    // Keyboard scale controls (+/-)
+    if (keys.current.plus) {
+      scaleRef.current = Math.min(scaleRef.current * (1 + scaleSpeed), 0.02)
+      setModelScale(scaleRef.current)
+      onScaleChange?.(scaleRef.current)
+    }
+    if (keys.current.minus) {
+      scaleRef.current = Math.max(scaleRef.current * (1 - scaleSpeed), 0.0002)
+      setModelScale(scaleRef.current)
+      onScaleChange?.(scaleRef.current)
     }
 
     // Keyboard controls (desktop or when not grabbing in VR)
@@ -296,9 +360,9 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
 
   // Base position: sits on the "table" at 0.8m height, centered
   const basePosition: [number, number, number] = [
-    -bounds.center.x * scale,
-    0.8 - (bufferGeometry.boundingBox!.min.y * scale), // Place on table
-    -bounds.center.z * scale - 0.5, // Slightly in front
+    -bounds.center.x * modelScale,
+    0.8 - (bufferGeometry.boundingBox!.min.y * modelScale), // Place on table
+    -bounds.center.z * modelScale - 0.5, // Slightly in front
   ]
 
   // Highlight color when hovered/grabbed in VR
@@ -306,27 +370,24 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
 
   return (
     <group ref={groupRef}>
-      <Interactive
-        onSelectStart={handleSelectStart}
-        onSelectEnd={handleSelectEnd}
-        onSqueezeStart={handleSqueezeStart}
-        onSqueezeEnd={handleSqueezeEnd}
-        onHover={() => setIsHovered(true)}
-        onBlur={() => setIsHovered(false)}
+      {/* The model itself - with pointer events for interaction */}
+      <mesh
+        ref={meshRef}
+        geometry={bufferGeometry}
+        position={basePosition}
+        scale={[modelScale, modelScale, modelScale]}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerMove={handlePointerMove}
+        onPointerOver={() => setIsHovered(true)}
+        onPointerOut={() => setIsHovered(false)}
       >
-        {/* The model itself */}
-        <mesh
-          geometry={bufferGeometry}
-          position={basePosition}
-          scale={[scale, scale, scale]}
-        >
-          <meshStandardMaterial
-            color={materialColor}
-            metalness={0.1}
-            roughness={0.4}
-          />
-        </mesh>
-      </Interactive>
+        <meshStandardMaterial
+          color={materialColor}
+          metalness={0.1}
+          roughness={0.4}
+        />
+      </mesh>
 
       {/* Dimension labels */}
       <Text
@@ -339,6 +400,17 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
         {`${bounds.width.toFixed(1)} x ${bounds.depth.toFixed(1)} x ${bounds.height.toFixed(1)} mm`}
       </Text>
 
+      {/* Scale indicator */}
+      <Text
+        position={[0, 0.5, -0.5]}
+        fontSize={0.03}
+        color="#ffaa00"
+        anchorX="center"
+        anchorY="middle"
+      >
+        {modelScale === 0.001 ? "1:1 Real Scale" : `${(modelScale * 1000).toFixed(1)}x Scale`}
+      </Text>
+
       {/* Grab indicator for VR */}
       {isHovered && !isGrabbed && (
         <Text
@@ -348,7 +420,7 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
           anchorX="center"
           anchorY="middle"
         >
-          Trigger or pinch to grab
+          Trigger to grab • Grip to enlarge
         </Text>
       )}
       {isGrabbed && (
@@ -467,15 +539,44 @@ function InfoPanel({ modelName, bounds, scale }: {
 // Controller hint text
 function ControllerHint() {
   return (
-    <Text
-      position={[0, 0.5, -1]}
-      fontSize={0.04}
-      color="#888"
-      anchorX="center"
-      anchorY="middle"
-    >
-      Move around to inspect the model
-    </Text>
+    <group position={[0, 0.4, -1]}>
+      <Text
+        position={[0, 0.15, 0]}
+        fontSize={0.04}
+        color="#00d4ff"
+        anchorX="center"
+        anchorY="middle"
+      >
+        VR Controls
+      </Text>
+      <Text
+        position={[0, 0.05, 0]}
+        fontSize={0.03}
+        color="#aaa"
+        anchorX="center"
+        anchorY="middle"
+      >
+        Trigger: Grab and move model
+      </Text>
+      <Text
+        position={[0, -0.02, 0]}
+        fontSize={0.03}
+        color="#aaa"
+        anchorX="center"
+        anchorY="middle"
+      >
+        Grip/Squeeze: Cycle scale (2x → 4x → 8x → reset)
+      </Text>
+      <Text
+        position={[0, -0.09, 0]}
+        fontSize={0.03}
+        color="#aaa"
+        anchorX="center"
+        anchorY="middle"
+      >
+        Walk around for different views
+      </Text>
+    </group>
   )
 }
 
@@ -559,14 +660,21 @@ interface VRSceneContentProps {
   modelColor: string
   modelName: string
   showGrid: boolean
-  scale: number
+  initialScale: number
+  onScaleChange?: (scale: number) => void
 }
 
-function VRSceneContent({ geometry, modelColor, modelName, showGrid, scale }: VRSceneContentProps) {
+function VRSceneContent({ geometry, modelColor, modelName, showGrid, initialScale, onScaleChange }: VRSceneContentProps) {
   const bufferGeometry = useBufferGeometry(geometry)
   const bounds = useModelBounds(bufferGeometry)
   const xrState = useXR()
   const isPresenting = !!xrState.session
+  const [currentScale, setCurrentScale] = useState(initialScale)
+
+  const handleScaleChange = (newScale: number) => {
+    setCurrentScale(newScale)
+    onScaleChange?.(newScale)
+  }
 
   return (
     <>
@@ -621,13 +729,18 @@ function VRSceneContent({ geometry, modelColor, modelName, showGrid, scale }: VR
       <InfoPanel
         modelName={modelName}
         bounds={bounds}
-        scale={scale}
+        scale={currentScale}
       />
 
       {/* The 3D model */}
       {geometry && (
         <Suspense fallback={<Loader />}>
-          <VRModel geometry={geometry} color={modelColor} scale={scale} />
+          <VRModel
+            geometry={geometry}
+            color={modelColor}
+            initialScale={initialScale}
+            onScaleChange={handleScaleChange}
+          />
         </Suspense>
       )}
 
@@ -721,7 +834,7 @@ export default function VRModelViewer({ onVRStart, onVREnd }: VRModelViewerProps
             modelColor={modelColor}
             modelName="3D Model"
             showGrid={true}
-            scale={scale}
+            initialScale={scale}
           />
         </XR>
       </Canvas>
@@ -771,10 +884,18 @@ export default function VRModelViewer({ onVRStart, onVREnd }: VRModelViewerProps
           <span className="text-cyan-400">Model:</span> Arrows move • R+Arrows rotate • PgUp/Dn height
         </p>
         <p className="mt-1">
+          <span className="text-cyan-400">Scale:</span> +/- keys to enlarge/shrink
+        </p>
+        <p className="mt-1">
           <span className="text-cyan-400">Mouse:</span> Drag orbit • Scroll zoom • Right-drag pan
         </p>
         {isVRSupported && (
-          <p className="mt-2 text-green-400">VR headset detected - click Enter VR below</p>
+          <>
+            <p className="mt-2 text-green-400">VR headset detected!</p>
+            <p className="text-green-300">
+              <span className="text-cyan-400">VR:</span> Trigger grab • Grip to enlarge
+            </p>
+          </>
         )}
       </div>
     </div>
