@@ -2,24 +2,15 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Sliders, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Layers, BarChart3, History, Ruler } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { useModelStore } from "@/lib/store"
-import { useEditorStore } from "@/lib/stores/editor-store"
-import { useEditorKeyboardShortcuts } from "@/hooks/useEditorKeyboardShortcuts"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import { downloadSTL } from "@/lib/jscad/stl-export"
 import ParameterControls from "@/components/editor/ParameterControls"
-import EditorToolbar from "@/components/editor/EditorToolbar"
-import TransformPanel from "@/components/editor/TransformPanel"
-import ObjectTree from "@/components/editor/ObjectTree"
-import HistoryPanel from "@/components/editor/HistoryPanel"
-import MeasurementPanel from "@/components/editor/MeasurementPanel"
-import BooleanToolbar from "@/components/editor/BooleanToolbar"
-import PrintAnalysisDashboard from "@/components/analysis/PrintAnalysisDashboard"
+import HelpDialog from "@/components/editor/HelpDialog"
 import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
 import type { User } from "@supabase/supabase-js"
@@ -73,11 +64,7 @@ export default function CreatePage() {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [showIdeas, setShowIdeas] = useState(false)
   const [mobileShowViewer, setMobileShowViewer] = useState(false)
-  const [rightPanel, setRightPanel] = useState<"properties" | "analysis" | "history" | "measure">("properties")
   const supabase = createClient()
-
-  // Enable keyboard shortcuts
-  useEditorKeyboardShortcuts()
 
   // Get user on mount
   useEffect(() => {
@@ -103,9 +90,6 @@ export default function CreatePage() {
     setError,
     modelColor,
   } = useModelStore()
-
-  const importGeometryAsObject = useEditorStore((state) => state.importGeometryAsObject)
-  const objects = useEditorStore((state) => state.objects)
 
   // Compile code when it changes or parameters change
   const compileModel = useCallback(async () => {
@@ -162,17 +146,6 @@ export default function CreatePage() {
         data.parameters.reduce((acc, p) => ({ ...acc, [p.name]: p.default }), {})
       )
       setGeometry(geom)
-
-      // Import as scene object for the new editor system
-      if (geom) {
-        importGeometryAsObject(
-          data.description?.split(" ").slice(0, 4).join(" ") || "Generated Model",
-          geom,
-          data.code,
-          data.parameters.reduce((acc, p) => ({ ...acc, [p.name]: p.default }), {}),
-          modelColor
-        )
-      }
 
       // On mobile, automatically show the 3D viewer after generation
       setMobileShowViewer(true)
@@ -276,44 +249,44 @@ export default function CreatePage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Top Toolbar */}
-      <EditorToolbar />
+      {/* Simple Header */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-gray-900/50">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-cyan-400" />
+          <h1 className="text-lg font-semibold text-gray-200">3D Creator</h1>
+        </div>
+        <HelpDialog />
+      </div>
 
       <div className="flex flex-1 min-h-0">
-        {/* Left Panel - Objects & Input */}
-        <div className={`w-72 border-r border-gray-800 flex flex-col bg-gray-900/50 ${mobileShowViewer ? 'hidden lg:flex' : 'flex'}`}>
-          {/* Object Tree */}
-          <div className="h-32 border-b border-gray-800">
-            <ObjectTree />
-          </div>
-
+        {/* Left Panel - Input & Controls */}
+        <div className={`w-80 border-r border-gray-800 flex flex-col bg-gray-900/50 ${mobileShowViewer ? 'hidden lg:flex' : 'flex'}`}>
           {/* AI Generation Section */}
-          <div className="p-3 border-b border-gray-800">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="p-4 border-b border-gray-800">
+            <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-semibold text-gray-300">Create with AI</h3>
+              <h3 className="text-sm font-semibold text-gray-300">Describe Your Model</h3>
             </div>
             <Textarea
-              placeholder="Describe what you want..."
+              placeholder="e.g., Phone stand with a slot for the charging cable..."
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="min-h-[60px] bg-gray-800 border-gray-700 resize-none text-sm"
+              className="min-h-[80px] bg-gray-800 border-gray-700 resize-none text-sm"
             />
             <Button
               onClick={() => handleGenerate()}
               disabled={isGenerating || !prompt.trim()}
-              size="sm"
-              className="w-full mt-2 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700"
+              className="w-full mt-3 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700"
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Generating...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-3 h-3 mr-2" />
-                  Generate
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Model
                 </>
               )}
             </Button>
@@ -321,20 +294,20 @@ export default function CreatePage() {
             {/* Quick Ideas Toggle */}
             <button
               onClick={() => setShowIdeas(!showIdeas)}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-cyan-400 transition-colors mt-2"
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-cyan-400 transition-colors mt-3 w-full"
             >
-              <Lightbulb className="w-3 h-3" />
-              <span>Ideas</span>
-              {showIdeas ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
+              <Lightbulb className="w-3.5 h-3.5" />
+              <span>Need ideas?</span>
+              {showIdeas ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
             </button>
 
             {showIdeas && (
-              <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
-                {SUGGESTION_PROMPTS.slice(0, 8).map((s) => (
+              <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
+                {SUGGESTION_PROMPTS.slice(0, 10).map((s) => (
                   <button
                     key={s.text}
                     onClick={() => { setPrompt(s.text); setShowIdeas(false); }}
-                    className="block w-full text-left text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 truncate"
+                    className="block w-full text-left text-xs px-2 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 truncate"
                   >
                     {s.icon} {s.text}
                   </button>
@@ -345,36 +318,47 @@ export default function CreatePage() {
 
           {/* Error Display */}
           {error && (
-            <div className="mx-3 mt-3 p-2 rounded bg-red-500/10 border border-red-500/30 flex items-start gap-2">
-              <AlertCircle className="w-3 h-3 text-red-400 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-red-400">{error}</p>
+            <div className="mx-4 mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
 
           {/* Model Info */}
           {response && (
-            <div className="p-3 border-b border-gray-800">
-              <p className="text-xs text-gray-300 line-clamp-2">{response.description}</p>
-              <div className="flex flex-wrap gap-1 mt-2">
-                <Badge variant="secondary" className="text-[10px]">{response.category}</Badge>
-                <Badge variant="outline" className="text-cyan-400 border-cyan-400/30 text-[10px]">
+            <div className="p-4 border-b border-gray-800">
+              <p className="text-sm text-gray-300 line-clamp-2">{response.description}</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <Badge variant="secondary" className="text-xs">{response.category}</Badge>
+                <Badge variant="outline" className="text-cyan-400 border-cyan-400/30 text-xs">
                   {response.estimatedPrintTime}
                 </Badge>
               </div>
             </div>
           )}
 
-          {/* Parameters - Visual Only (No Code Tab) */}
+          {/* Parameters */}
           <div className="flex-1 overflow-auto">
             <ParameterControls />
           </div>
 
+          {/* Print Notes */}
+          {response?.notes && response.notes.length > 0 && (
+            <div className="p-4 border-t border-gray-800">
+              <p className="text-xs font-semibold text-gray-400 mb-2">Print Tips:</p>
+              <ul className="text-xs text-gray-500 space-y-1">
+                {response.notes.slice(0, 3).map((note, i) => (
+                  <li key={i}>• {note}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Mobile: View 3D Button */}
-          <div className="lg:hidden p-3 border-t border-gray-800">
+          <div className="lg:hidden p-4 border-t border-gray-800">
             <Button
               onClick={() => setMobileShowViewer(true)}
               variant="outline"
-              size="sm"
               className="w-full border-cyan-500/50 text-cyan-400"
             >
               View 3D Model
@@ -392,11 +376,6 @@ export default function CreatePage() {
             <ChevronUp className="w-4 h-4 rotate-[-90deg]" />
             Back
           </button>
-
-          {/* Boolean Operations Toolbar */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-gray-900/80 backdrop-blur-sm rounded-lg border border-gray-700 px-2 py-1">
-            <BooleanToolbar />
-          </div>
 
           {/* Action Buttons */}
           <div className="absolute top-4 right-4 z-10 flex gap-2">
@@ -426,7 +405,7 @@ export default function CreatePage() {
               className="bg-gray-800/80 backdrop-blur-sm"
             >
               <Download className="w-4 h-4 lg:mr-2" />
-              <span className="hidden lg:inline">STL</span>
+              <span className="hidden lg:inline">Download STL</span>
             </Button>
           </div>
 
@@ -434,76 +413,13 @@ export default function CreatePage() {
           {isCompiling && (
             <div className="absolute top-14 lg:top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/80 backdrop-blur-sm">
               <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-              <span className="text-sm text-gray-300">Compiling...</span>
+              <span className="text-sm text-gray-300">Updating...</span>
             </div>
           )}
 
           {/* 3D Viewer */}
           <div className="flex-1 relative">
             <ModelViewer />
-          </div>
-
-          {/* Print Notes */}
-          {response?.notes && response.notes.length > 0 && (
-            <div className="absolute bottom-4 left-4 right-4 lg:left-auto lg:right-4 lg:max-w-xs bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-gray-700">
-              <p className="text-xs font-semibold text-gray-400 mb-1">Print Tips:</p>
-              <ul className="text-xs text-gray-300 space-y-1">
-                {response.notes.slice(0, 3).map((note, i) => (
-                  <li key={i}>• {note}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* Right Panel - Properties/Analysis/History */}
-        <div className="hidden lg:flex w-80 border-l border-gray-800 flex-col bg-gray-900/50">
-          {/* Panel Tabs */}
-          <div className="flex border-b border-gray-800">
-            <button
-              onClick={() => setRightPanel("properties")}
-              className={`flex-1 p-2 text-xs flex items-center justify-center gap-1 transition-colors ${
-                rightPanel === "properties" ? "text-cyan-400 bg-cyan-500/10" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <Sliders className="w-3 h-3" />
-              Transform
-            </button>
-            <button
-              onClick={() => setRightPanel("measure")}
-              className={`flex-1 p-2 text-xs flex items-center justify-center gap-1 transition-colors ${
-                rightPanel === "measure" ? "text-cyan-400 bg-cyan-500/10" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <Ruler className="w-3 h-3" />
-              Measure
-            </button>
-            <button
-              onClick={() => setRightPanel("analysis")}
-              className={`flex-1 p-2 text-xs flex items-center justify-center gap-1 transition-colors ${
-                rightPanel === "analysis" ? "text-cyan-400 bg-cyan-500/10" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <BarChart3 className="w-3 h-3" />
-              Analysis
-            </button>
-            <button
-              onClick={() => setRightPanel("history")}
-              className={`flex-1 p-2 text-xs flex items-center justify-center gap-1 transition-colors ${
-                rightPanel === "history" ? "text-cyan-400 bg-cyan-500/10" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <History className="w-3 h-3" />
-              History
-            </button>
-          </div>
-
-          {/* Panel Content */}
-          <div className="flex-1 overflow-hidden">
-            {rightPanel === "properties" && <TransformPanel />}
-            {rightPanel === "measure" && <MeasurementPanel />}
-            {rightPanel === "analysis" && <PrintAnalysisDashboard />}
-            {rightPanel === "history" && <HistoryPanel />}
           </div>
         </div>
       </div>
