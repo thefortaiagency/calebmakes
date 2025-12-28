@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useEditorStore, useSelectedObjects } from "@/lib/stores/editor-store"
+import { useModelStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -113,6 +114,7 @@ function PrintabilityScore({ score }: { score: number }) {
 export default function PrintAnalysisDashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const selectedObjects = useSelectedObjects()
+  const legacyGeometry = useModelStore((state) => state.geometry)
   const printAnalysis = useEditorStore((state) => state.printAnalysis)
   const setPrintAnalysis = useEditorStore((state) => state.setPrintAnalysis)
   const preferences = useEditorStore((state) => state.preferences)
@@ -120,11 +122,14 @@ export default function PrintAnalysisDashboard() {
 
   const selectedMaterial = MATERIAL_PRESETS[preferences.material]
 
-  const runAnalysis = async () => {
-    if (selectedObjects.length === 0) return
+  // Use selected scene objects if available, otherwise fall back to legacy geometry
+  const hasGeometry = selectedObjects.length > 0 || legacyGeometry !== null
+  const geometryToAnalyze = selectedObjects.length > 0
+    ? selectedObjects[0].geometry
+    : legacyGeometry
 
-    const geometry = selectedObjects[0].geometry
-    if (!geometry) return
+  const runAnalysis = async () => {
+    if (!geometryToAnalyze) return
 
     setIsAnalyzing(true)
 
@@ -133,7 +138,7 @@ export default function PrintAnalysisDashboard() {
       const { analyzeGeometry } = await import("@/lib/analysis/geometry-analysis")
 
       // Run real analysis on the geometry
-      const analysis = analyzeGeometry(geometry, {
+      const analysis = analyzeGeometry(geometryToAnalyze, {
         ...selectedMaterial,
         name: preferences.material,
       })
@@ -146,19 +151,13 @@ export default function PrintAnalysisDashboard() {
     }
   }
 
-  if (selectedObjects.length === 0) {
+  if (!hasGeometry) {
     return (
       <div className="h-full flex flex-col">
-        <div className="p-3 border-b border-gray-800 flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-cyan-400" />
-          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-            Print Analysis
-          </h3>
-        </div>
         <div className="flex-1 flex items-center justify-center text-center p-4">
           <div className="text-gray-500">
             <Box className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">Select an object to analyze</p>
+            <p className="text-sm">Generate a model to analyze</p>
             <p className="text-xs mt-1">
               Get wall thickness, overhangs, weight, and print time estimates
             </p>
@@ -170,29 +169,23 @@ export default function PrintAnalysisDashboard() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="p-3 border-b border-gray-800 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-cyan-400" />
-          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-            Print Analysis
-          </h3>
-        </div>
+      {/* Analyze Button */}
+      <div className="p-3 border-b border-gray-800">
         <Button
           size="sm"
           onClick={runAnalysis}
           disabled={isAnalyzing}
-          className="h-7 text-xs bg-cyan-600 hover:bg-cyan-700"
+          className="w-full h-8 text-xs bg-cyan-600 hover:bg-cyan-700"
         >
           {isAnalyzing ? (
             <>
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
               Analyzing...
             </>
           ) : (
             <>
-              <BarChart3 className="w-3 h-3 mr-1" />
-              Analyze
+              <BarChart3 className="w-3 h-3 mr-1.5" />
+              {printAnalysis ? "Re-Analyze Model" : "Analyze Model"}
             </>
           )}
         </Button>

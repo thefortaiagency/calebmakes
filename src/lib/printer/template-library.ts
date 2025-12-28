@@ -96,6 +96,461 @@ export const TEMPLATE_CATEGORIES: Record<TemplateCategory, { name: string; icon:
 
 export const PRINT_TEMPLATES: PrintTemplate[] = [
   // ============================================
+  // BAMBU LAB P1S ACCESSORIES
+  // ============================================
+  {
+    id: "p1s-tool-holder",
+    name: "P1S Magnetic Tool Holder",
+    description: "Side-mounted magnetic tool holder for scrapers, Allen keys, and nozzle pins. Attaches to P1S frame.",
+    category: "p1s-accessories",
+    subcategory: "organization",
+    difficulty: "easy",
+    printTime: "1h 30m",
+    material: "PETG",
+    icon: "🧲",
+    tags: ["p1s", "bambu", "tools", "magnetic", "organizer"],
+    code: `function getParameterDefinitions() {
+  return [
+    { name: 'width', type: 'float', initial: 60, min: 40, max: 100, step: 10, caption: 'Width (mm)' },
+    { name: 'depth', type: 'float', initial: 25, min: 20, max: 40, step: 5, caption: 'Depth (mm)' },
+    { name: 'height', type: 'float', initial: 80, min: 50, max: 120, step: 10, caption: 'Height (mm)' },
+    { name: 'magnetSlots', type: 'int', initial: 3, min: 2, max: 6, step: 1, caption: 'Magnet Slots' },
+    { name: 'toolSlots', type: 'int', initial: 4, min: 2, max: 6, step: 1, caption: 'Tool Slots' }
+  ];
+}
+
+function main(params) {
+  const { width, depth, height, magnetSlots, toolSlots } = params;
+
+  const wallThickness = 3;
+  const magnetDia = 10;
+  const magnetHeight = 3;
+
+  // Main body
+  let body = cuboid({ size: [width, depth, height] });
+  body = translate([0, 0, height/2], body);
+
+  // Hollow out front for tools
+  let hollow = cuboid({ size: [width - wallThickness*2, depth - wallThickness, height - wallThickness*2] });
+  hollow = translate([0, wallThickness/2, height/2 + wallThickness], hollow);
+  body = subtract(body, hollow);
+
+  // Magnet slots on back
+  const magnetSpacing = width / (magnetSlots + 1);
+  for (let i = 1; i <= magnetSlots; i++) {
+    let slot = cylinder({ radius: magnetDia/2 + 0.2, height: magnetHeight + 0.5, segments: 32 });
+    slot = rotateX(Math.PI/2, slot);
+    slot = translate([
+      -width/2 + i * magnetSpacing,
+      -depth/2 + magnetHeight/2,
+      height - 15
+    ], slot);
+    body = subtract(body, slot);
+  }
+
+  // Tool dividers
+  const slotWidth = (width - wallThickness*2) / toolSlots;
+  for (let i = 1; i < toolSlots; i++) {
+    let divider = cuboid({ size: [2, depth - wallThickness - 2, height - wallThickness*3] });
+    divider = translate([
+      -width/2 + wallThickness + i * slotWidth,
+      wallThickness/2 + 1,
+      height/2 + wallThickness
+    ], divider);
+    body = union(body, divider);
+  }
+
+  // Drain holes at bottom
+  for (let i = 0; i < toolSlots; i++) {
+    let drain = cylinder({ radius: 3, height: wallThickness + 2, segments: 16 });
+    drain = translate([
+      -width/2 + wallThickness + slotWidth/2 + i * slotWidth,
+      0,
+      wallThickness/2
+    ], drain);
+    body = subtract(body, drain);
+  }
+
+  return body;
+}`,
+    parameters: [
+      { name: "width", type: "number", default: 60, min: 40, max: 100, step: 10, label: "Width (mm)" },
+      { name: "depth", type: "number", default: 25, min: 20, max: 40, step: 5, label: "Depth (mm)" },
+      { name: "height", type: "number", default: 80, min: 50, max: 120, step: 10, label: "Height (mm)" },
+      { name: "magnetSlots", type: "number", default: 3, min: 2, max: 6, step: 1, label: "Magnet Slots" },
+      { name: "toolSlots", type: "number", default: 4, min: 2, max: 6, step: 1, label: "Tool Slots" }
+    ],
+    nonPrintedParts: [
+      "10x3mm neodymium magnets (qty matches magnet slots)",
+      "Super glue for magnets"
+    ],
+    notes: [
+      "Attaches to side of P1S via magnets",
+      "PETG recommended for durability",
+      "Holds scrapers, Allen keys, tweezers"
+    ]
+  },
+  {
+    id: "p1s-filament-guide",
+    name: "P1S Top Filament Guide",
+    description: "Smooth filament guide for top-mounted spool holder. Reduces friction and prevents tangles.",
+    category: "p1s-accessories",
+    subcategory: "filament",
+    difficulty: "easy",
+    printTime: "45m",
+    material: "PETG",
+    icon: "🧵",
+    tags: ["p1s", "bambu", "filament", "guide", "spool"],
+    code: `function getParameterDefinitions() {
+  return [
+    { name: 'innerDia', type: 'float', initial: 4, min: 2, max: 6, step: 0.5, caption: 'Filament Hole (mm)' },
+    { name: 'outerDia', type: 'float', initial: 20, min: 15, max: 30, step: 1, caption: 'Guide Diameter (mm)' },
+    { name: 'height', type: 'float', initial: 15, min: 10, max: 25, step: 1, caption: 'Height (mm)' },
+    { name: 'mountWidth', type: 'float', initial: 40, min: 30, max: 60, step: 5, caption: 'Mount Width (mm)' }
+  ];
+}
+
+function main(params) {
+  const { innerDia, outerDia, height, mountWidth } = params;
+
+  // Funnel guide with smooth entry
+  let guide = cylinder({ radius: outerDia/2, height: height, segments: 64 });
+  guide = translate([0, 0, height/2], guide);
+
+  // Hollow core for filament
+  let core = cylinder({ radius: innerDia/2, height: height + 2, segments: 32 });
+  core = translate([0, 0, height/2], core);
+  guide = subtract(guide, core);
+
+  // Funnel entry at top
+  let funnel = cylinder({ radius: outerDia/2 - 2, height: height/3, segments: 64 });
+  let funnelCore = cylinder({ radius: innerDia/2, height: height/3 + 2, segments: 32 });
+  funnel = subtract(funnel, funnelCore);
+
+  // Taper the funnel
+  let funnelTaper = cylinder({ radius: outerDia/3, height: height/3, segments: 64 });
+  funnelTaper = translate([0, 0, -height/6], funnelTaper);
+  funnel = subtract(funnel, funnelTaper);
+  funnel = translate([0, 0, height - height/6], funnel);
+  guide = union(guide, funnel);
+
+  // Mounting base
+  let mount = cuboid({ size: [mountWidth, 20, 4] });
+  mount = translate([0, -outerDia/2 - 5, 2], mount);
+  guide = union(guide, mount);
+
+  // Mounting holes
+  for (let x of [-mountWidth/3, mountWidth/3]) {
+    let hole = cylinder({ radius: 2, height: 6, segments: 16 });
+    hole = translate([x, -outerDia/2 - 5, 2], hole);
+    guide = subtract(guide, hole);
+  }
+
+  // PTFE tube insert slot at bottom
+  let ptfeSlot = cylinder({ radius: 2.5, height: 8, segments: 16 });
+  ptfeSlot = translate([0, 0, 4], ptfeSlot);
+  guide = subtract(guide, ptfeSlot);
+
+  return guide;
+}`,
+    parameters: [
+      { name: "innerDia", type: "number", default: 4, min: 2, max: 6, step: 0.5, label: "Filament Hole (mm)" },
+      { name: "outerDia", type: "number", default: 20, min: 15, max: 30, step: 1, label: "Guide Diameter (mm)" },
+      { name: "height", type: "number", default: 15, min: 10, max: 25, step: 1, label: "Height (mm)" },
+      { name: "mountWidth", type: "number", default: 40, min: 30, max: 60, step: 5, label: "Mount Width (mm)" }
+    ],
+    nonPrintedParts: [
+      "M3 screws for mounting (optional)",
+      "Short PTFE tube section (optional)"
+    ],
+    notes: [
+      "Smooth inner surface reduces friction",
+      "Mounts on top of P1S enclosure",
+      "Works with any 1.75mm filament"
+    ]
+  },
+  {
+    id: "p1s-camera-mount",
+    name: "P1S Camera Light Mount",
+    description: "LED light ring mount that attaches around the P1S camera for better print monitoring.",
+    category: "p1s-accessories",
+    subcategory: "lighting",
+    difficulty: "medium",
+    printTime: "1h",
+    material: "PLA",
+    icon: "💡",
+    tags: ["p1s", "bambu", "camera", "light", "led"],
+    code: `function getParameterDefinitions() {
+  return [
+    { name: 'ringDia', type: 'float', initial: 40, min: 30, max: 60, step: 5, caption: 'Ring Diameter (mm)' },
+    { name: 'ledCount', type: 'int', initial: 8, min: 4, max: 12, step: 1, caption: 'LED Slots' },
+    { name: 'thickness', type: 'float', initial: 8, min: 6, max: 12, step: 1, caption: 'Thickness (mm)' }
+  ];
+}
+
+function main(params) {
+  const { ringDia, ledCount, thickness } = params;
+
+  const cameraDia = 20;
+  const ledDia = 5;
+
+  // Main ring
+  let ring = cylinder({ radius: ringDia/2, height: thickness, segments: 64 });
+  ring = translate([0, 0, thickness/2], ring);
+
+  // Camera hole in center
+  let cameraHole = cylinder({ radius: cameraDia/2, height: thickness + 2, segments: 32 });
+  cameraHole = translate([0, 0, thickness/2], cameraHole);
+  ring = subtract(ring, cameraHole);
+
+  // LED slots around ring
+  const ledRadius = (ringDia/2 + cameraDia/2) / 2;
+  for (let i = 0; i < ledCount; i++) {
+    const angle = (i / ledCount) * Math.PI * 2;
+    let ledSlot = cylinder({ radius: ledDia/2, height: thickness - 2, segments: 16 });
+    ledSlot = translate([
+      Math.cos(angle) * ledRadius,
+      Math.sin(angle) * ledRadius,
+      thickness/2 + 1
+    ], ledSlot);
+    ring = subtract(ring, ledSlot);
+  }
+
+  // Wire channel on back
+  let channel = cuboid({ size: [4, ringDia, 3] });
+  channel = translate([0, 0, 1.5], channel);
+  ring = subtract(ring, channel);
+
+  // Mounting tabs
+  for (let angle of [Math.PI/4, Math.PI*3/4, Math.PI*5/4, Math.PI*7/4]) {
+    let tab = cuboid({ size: [10, 15, 3] });
+    tab = translate([
+      Math.cos(angle) * (ringDia/2 + 5),
+      Math.sin(angle) * (ringDia/2 + 5),
+      1.5
+    ], tab);
+
+    // Screw hole in tab
+    let screwHole = cylinder({ radius: 1.5, height: 5, segments: 16 });
+    screwHole = translate([
+      Math.cos(angle) * (ringDia/2 + 5),
+      Math.sin(angle) * (ringDia/2 + 5),
+      1.5
+    ], screwHole);
+
+    ring = union(ring, tab);
+    ring = subtract(ring, screwHole);
+  }
+
+  return ring;
+}`,
+    parameters: [
+      { name: "ringDia", type: "number", default: 40, min: 30, max: 60, step: 5, label: "Ring Diameter (mm)" },
+      { name: "ledCount", type: "number", default: 8, min: 4, max: 12, step: 1, label: "LED Slots" },
+      { name: "thickness", type: "number", default: 8, min: 6, max: 12, step: 1, label: "Thickness (mm)" }
+    ],
+    nonPrintedParts: [
+      "5mm LEDs (qty matches LED slots)",
+      "Resistors for LEDs",
+      "Wire for connections",
+      "5V power source (can tap from printer USB)"
+    ],
+    notes: [
+      "Improves camera visibility for monitoring",
+      "Use white LEDs for best results",
+      "Can connect to printer 5V USB output"
+    ]
+  },
+  {
+    id: "p1s-purge-bucket",
+    name: "P1S Purge/Waste Bucket",
+    description: "Removable waste bucket for catching purged filament. Slides into P1S waste chute area.",
+    category: "p1s-accessories",
+    subcategory: "waste",
+    difficulty: "easy",
+    printTime: "2h",
+    material: "PETG",
+    icon: "🗑️",
+    tags: ["p1s", "bambu", "purge", "waste", "bucket"],
+    code: `function getParameterDefinitions() {
+  return [
+    { name: 'width', type: 'float', initial: 80, min: 60, max: 100, step: 5, caption: 'Width (mm)' },
+    { name: 'depth', type: 'float', initial: 60, min: 40, max: 80, step: 5, caption: 'Depth (mm)' },
+    { name: 'height', type: 'float', initial: 50, min: 30, max: 80, step: 5, caption: 'Height (mm)' },
+    { name: 'wallThickness', type: 'float', initial: 2, min: 1.5, max: 3, step: 0.5, caption: 'Wall Thickness (mm)' }
+  ];
+}
+
+function main(params) {
+  const { width, depth, height, wallThickness } = params;
+
+  const handleHeight = 15;
+  const handleWidth = 30;
+
+  // Outer shell
+  let bucket = roundedCuboid({ size: [width, depth, height], roundRadius: 3, segments: 16 });
+  bucket = translate([0, 0, height/2], bucket);
+
+  // Hollow inside
+  let hollow = roundedCuboid({
+    size: [width - wallThickness*2, depth - wallThickness*2, height - wallThickness],
+    roundRadius: 2,
+    segments: 16
+  });
+  hollow = translate([0, 0, height/2 + wallThickness/2], hollow);
+  bucket = subtract(bucket, hollow);
+
+  // Pull handle on front
+  let handle = roundedCuboid({ size: [handleWidth, 10, handleHeight], roundRadius: 2, segments: 8 });
+  handle = translate([0, depth/2 + 5, height - handleHeight/2], handle);
+
+  let handleCutout = roundedCuboid({ size: [handleWidth - 8, 12, handleHeight - 6], roundRadius: 2, segments: 8 });
+  handleCutout = translate([0, depth/2 + 5, height - handleHeight/2 + 2], handleCutout);
+  handle = subtract(handle, handleCutout);
+
+  bucket = union(bucket, handle);
+
+  // Grip texture on sides
+  for (let i = 0; i < 5; i++) {
+    for (let side of [-1, 1]) {
+      let ridge = cuboid({ size: [3, 2, height - 10] });
+      ridge = translate([
+        side * (width/2 + 1),
+        -depth/4 + i * depth/5,
+        height/2
+      ], ridge);
+      bucket = union(bucket, ridge);
+    }
+  }
+
+  // Drain holes (optional, for easy cleaning)
+  for (let x of [-width/4, 0, width/4]) {
+    for (let y of [-depth/4, depth/4]) {
+      let drain = cylinder({ radius: 2, height: wallThickness + 2, segments: 16 });
+      drain = translate([x, y, wallThickness/2], drain);
+      bucket = subtract(bucket, drain);
+    }
+  }
+
+  return bucket;
+}`,
+    parameters: [
+      { name: "width", type: "number", default: 80, min: 60, max: 100, step: 5, label: "Width (mm)" },
+      { name: "depth", type: "number", default: 60, min: 40, max: 80, step: 5, label: "Depth (mm)" },
+      { name: "height", type: "number", default: 50, min: 30, max: 80, step: 5, label: "Height (mm)" },
+      { name: "wallThickness", type: "number", default: 2, min: 1.5, max: 3, step: 0.5, label: "Wall Thickness (mm)" }
+    ],
+    notes: [
+      "Catches purge waste from AMS changes",
+      "Easy pull handle for removal",
+      "Drain holes for washing"
+    ]
+  },
+  {
+    id: "p1s-spool-holder",
+    name: "P1S External Spool Holder",
+    description: "External spool holder with bearing for smooth filament feeding. Mounts on top of P1S.",
+    category: "p1s-accessories",
+    subcategory: "filament",
+    difficulty: "medium",
+    printTime: "3h",
+    material: "PETG",
+    icon: "🎡",
+    tags: ["p1s", "bambu", "spool", "holder", "bearing"],
+    code: `function getParameterDefinitions() {
+  return [
+    { name: 'spoolDia', type: 'float', initial: 200, min: 150, max: 250, step: 10, caption: 'Max Spool Diameter (mm)' },
+    { name: 'spoolWidth', type: 'float', initial: 70, min: 50, max: 100, step: 5, caption: 'Max Spool Width (mm)' },
+    { name: 'axleDia', type: 'float', initial: 52, min: 40, max: 60, step: 2, caption: 'Spool Hole Diameter (mm)' },
+    { name: 'bearingDia', type: 'float', initial: 22, min: 15, max: 30, step: 1, caption: 'Bearing OD (mm)' }
+  ];
+}
+
+function main(params) {
+  const { spoolDia, spoolWidth, axleDia, bearingDia } = params;
+
+  const baseHeight = 10;
+  const armHeight = spoolDia/2 + 30;
+  const armThickness = 8;
+
+  // Base plate
+  let base = roundedCuboid({ size: [spoolWidth + 40, 80, baseHeight], roundRadius: 5, segments: 16 });
+  base = translate([0, 0, baseHeight/2], base);
+
+  // Side arms
+  let leftArm = cuboid({ size: [armThickness, 60, armHeight] });
+  leftArm = translate([-spoolWidth/2 - armThickness/2, 0, armHeight/2 + baseHeight], leftArm);
+
+  let rightArm = cuboid({ size: [armThickness, 60, armHeight] });
+  rightArm = translate([spoolWidth/2 + armThickness/2, 0, armHeight/2 + baseHeight], rightArm);
+
+  base = union(base, leftArm);
+  base = union(base, rightArm);
+
+  // Bearing holders at top of arms
+  for (let side of [-1, 1]) {
+    let bearingMount = cylinder({ radius: bearingDia/2 + 4, height: armThickness, segments: 32 });
+    bearingMount = rotateY(Math.PI/2, bearingMount);
+    bearingMount = translate([
+      side * (spoolWidth/2 + armThickness/2),
+      0,
+      armHeight + baseHeight
+    ], bearingMount);
+
+    // Bearing cavity
+    let bearingHole = cylinder({ radius: bearingDia/2 + 0.2, height: 8, segments: 32 });
+    bearingHole = rotateY(Math.PI/2, bearingHole);
+    bearingHole = translate([
+      side * (spoolWidth/2 + armThickness/2),
+      0,
+      armHeight + baseHeight
+    ], bearingHole);
+
+    base = union(base, bearingMount);
+    base = subtract(base, bearingHole);
+  }
+
+  // Axle rod (separate piece)
+  let axle = cylinder({ radius: 10, height: spoolWidth + 30, segments: 32 });
+  axle = rotateY(Math.PI/2, axle);
+  axle = translate([0, 100, armHeight + baseHeight], axle);
+
+  // Flange to hold spool
+  let flange = cylinder({ radius: axleDia/2 - 2, height: 5, segments: 32 });
+  flange = rotateY(Math.PI/2, flange);
+  flange = translate([-spoolWidth/2 - 10, 100, armHeight + baseHeight], flange);
+  axle = union(axle, flange);
+
+  // Mounting holes in base
+  for (let x of [-spoolWidth/3, spoolWidth/3]) {
+    for (let y of [-25, 25]) {
+      let hole = cylinder({ radius: 2.5, height: baseHeight + 2, segments: 16 });
+      hole = translate([x, y, baseHeight/2], hole);
+      base = subtract(base, hole);
+    }
+  }
+
+  return [base, axle];
+}`,
+    parameters: [
+      { name: "spoolDia", type: "number", default: 200, min: 150, max: 250, step: 10, label: "Max Spool Diameter (mm)" },
+      { name: "spoolWidth", type: "number", default: 70, min: 50, max: 100, step: 5, label: "Max Spool Width (mm)" },
+      { name: "axleDia", type: "number", default: 52, min: 40, max: 60, step: 2, label: "Spool Hole (mm)" },
+      { name: "bearingDia", type: "number", default: 22, min: 15, max: 30, step: 1, label: "Bearing OD (mm)" }
+    ],
+    nonPrintedParts: [
+      "608 bearings (2x) - 22mm OD, 8mm ID",
+      "8mm steel rod for axle (optional)",
+      "M5 screws for mounting"
+    ],
+    notes: [
+      "Smooth bearing rotation reduces tangles",
+      "Fits most 1kg spools",
+      "Mount on top of P1S enclosure"
+    ]
+  },
+
+  // ============================================
   // CALIBRATION & TEST PRINTS
   // ============================================
   {

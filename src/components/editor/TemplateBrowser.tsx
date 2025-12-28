@@ -338,8 +338,8 @@ export default function TemplateBrowser() {
           Template Library
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] bg-gray-900 border-gray-800 flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl h-[80vh] bg-gray-900 border-gray-800 flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-gray-200">
             <Box className="w-5 h-5 text-cyan-400" />
             3D Print Template Library
@@ -351,7 +351,7 @@ export default function TemplateBrowser() {
 
         {selectedTemplate ? (
           /* Detail View */
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <TemplateDetail
               template={selectedTemplate}
               onGenerate={handleGenerate}
@@ -361,9 +361,9 @@ export default function TemplateBrowser() {
           </div>
         ) : (
           /* List View */
-          <div className="flex-1 min-h-0 flex flex-col gap-4">
+          <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
             {/* Search and Filter */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-shrink-0">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
@@ -377,7 +377,7 @@ export default function TemplateBrowser() {
                 value={selectedCategory}
                 onValueChange={(v) => setSelectedCategory(v as TemplateCategory | "all")}
               >
-                <SelectTrigger className="w-44 bg-gray-800 border-gray-700 text-gray-200">
+                <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-gray-200">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-gray-700">
@@ -392,14 +392,14 @@ export default function TemplateBrowser() {
             </div>
 
             {/* Results count */}
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 flex-shrink-0">
               {filteredTemplates.length} template{filteredTemplates.length !== 1 ? "s" : ""}
               {selectedCategory !== "all" && ` in ${TEMPLATE_CATEGORIES[selectedCategory].name}`}
             </div>
 
-            {/* Template Grid */}
-            <ScrollArea className="flex-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-2">
+            {/* Template Grid - Scrollable */}
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-3">
                 {filteredTemplates.length > 0 ? (
                   filteredTemplates.map((template) => (
                     <TemplateCard
@@ -416,7 +416,7 @@ export default function TemplateBrowser() {
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         )}
       </DialogContent>
