@@ -69,10 +69,94 @@ export async function POST(request: Request) {
       )
     )
 
-    console.log("3D model generated:", output)
+    console.log("3D model generated - type:", typeof output)
+    console.log("3D model generated - isArray:", Array.isArray(output))
+    console.log("3D model generated - keys:", output && typeof output === "object" ? Object.keys(output) : "N/A")
+    console.log("3D model generated - toString:", String(output))
 
-    // Output could be a FileOutput or string URL
-    const modelUrl = typeof output === "string" ? output : String(output)
+    // Debug mesh property specifically
+    if (output && typeof output === "object" && "mesh" in output) {
+      const mesh = (output as { mesh: unknown }).mesh
+      console.log("Mesh type:", typeof mesh)
+      console.log("Mesh constructor:", mesh?.constructor?.name)
+      console.log("Mesh has url():", typeof (mesh as { url?: unknown })?.url === "function")
+      console.log("Mesh keys:", mesh && typeof mesh === "object" ? Object.keys(mesh) : "N/A")
+      console.log("Mesh prototype methods:", mesh ? Object.getOwnPropertyNames(Object.getPrototypeOf(mesh)) : "N/A")
+    }
+
+    // Handle different output formats from Replicate
+    let modelUrl: string | null = null
+
+    // Helper to extract URL from FileOutput or similar objects
+    const extractUrl = (fileOutput: unknown): string | null => {
+      if (!fileOutput) return null
+
+      // If it's already a string URL
+      if (typeof fileOutput === "string") {
+        return fileOutput
+      }
+
+      // FileOutput objects have a .url() method that returns a URL object
+      if (typeof fileOutput === "object" && fileOutput !== null) {
+        const fo = fileOutput as { url?: () => URL; href?: string }
+
+        // Try .url() method (returns URL object with .href)
+        if (typeof fo.url === "function") {
+          try {
+            const urlObj = fo.url()
+            if (urlObj && urlObj.href) {
+              return urlObj.href
+            }
+          } catch (e) {
+            console.log("url() method failed:", e)
+          }
+        }
+
+        // Try .href directly
+        if (fo.href) {
+          return fo.href
+        }
+
+        // Try String conversion (works for some FileOutput instances)
+        const str = String(fileOutput)
+        if (str && str !== "[object Object]" && str.startsWith("http")) {
+          return str
+        }
+      }
+
+      return null
+    }
+
+    if (typeof output === "string") {
+      modelUrl = output
+    } else if (Array.isArray(output) && output.length > 0) {
+      // Array of FileOutputs - try first element
+      modelUrl = extractUrl(output[0])
+    } else if (output && typeof output === "object") {
+      const obj = output as Record<string, unknown>
+
+      // Try common property names - Hunyuan3D returns { mesh: FileOutput }
+      if (obj.mesh) {
+        modelUrl = extractUrl(obj.mesh)
+      } else if (obj.output) {
+        modelUrl = extractUrl(obj.output)
+      } else if (obj.url) {
+        modelUrl = extractUrl(obj.url)
+      } else {
+        // Try the output object itself as FileOutput
+        modelUrl = extractUrl(output)
+      }
+    }
+
+    console.log("Final modelUrl:", modelUrl)
+
+    if (!modelUrl || modelUrl === "[object Object]") {
+      console.error("Could not extract model URL from output")
+      return Response.json(
+        { error: "Failed to get model URL from generation" },
+        { status: 500 }
+      )
+    }
 
     return Response.json({
       success: true,
