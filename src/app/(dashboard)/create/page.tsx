@@ -687,6 +687,34 @@ function CreatePageContent() {
       // Calculate dimensions from geometry
       const bounds = calculateBounds(geometryToFork)
 
+      // For STL imports without code, serialize and store geometry
+      let geometryUrl: string | null = null
+      const isStlImport = !code || code.trim() === "" || code.includes("// Imported STL")
+
+      if (isStlImport && geometryToFork) {
+        try {
+          // Serialize geometry data
+          const geometryData = {
+            vertices: Array.from(geometryToFork.vertices),
+            indices: Array.from(geometryToFork.indices),
+            normals: Array.from(geometryToFork.normals),
+          }
+          const geometryBlob = new Blob([JSON.stringify(geometryData)], { type: "application/json" })
+          const geometryFileName = `${user.id}/${Date.now()}_geometry.json`
+
+          const { error: geoError } = await supabase.storage
+            .from("thumbnails")
+            .upload(geometryFileName, geometryBlob, { contentType: "application/json", upsert: true })
+
+          if (!geoError) {
+            const { data: geoData } = supabase.storage.from("thumbnails").getPublicUrl(geometryFileName)
+            geometryUrl = geoData.publicUrl
+          }
+        } catch (geoErr) {
+          console.error("Failed to save geometry:", geoErr)
+        }
+      }
+
       // Prepare model data
       const modelData = {
         user_id: user.id,
@@ -704,6 +732,7 @@ function CreatePageContent() {
         estimated_print_time: response?.estimatedPrintTime || "Varies",
         notes: response?.notes || [],
         thumbnail_url: thumbnailUrl,
+        geometry_url: geometryUrl, // Store geometry URL for STL imports
         is_public: false,
       }
 

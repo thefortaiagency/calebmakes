@@ -35,6 +35,7 @@ interface Model {
   code: string
   parameters: Parameter[]
   thumbnail_url: string | null
+  geometry_url?: string | null
   dimensions: { width: number; depth: number; height: number }
 }
 
@@ -86,23 +87,45 @@ export default function MyModelsPage() {
     setError(null)
 
     try {
-      // Load code and parameters into the store
-      setCode(model.code)
-      setParameters(model.parameters || [])
+      // Check if this is an STL import (has geometry_url or placeholder code)
+      const isStlImport = model.geometry_url ||
+        !model.code ||
+        model.code.includes("// Imported STL")
 
-      // Compile the model
-      const defaultParams = (model.parameters || []).reduce(
-        (acc, p) => ({ ...acc, [p.name]: p.default }),
-        {}
-      )
-      const geom = await compileJSCAD(model.code, defaultParams)
-      setGeometry(geom)
+      if (isStlImport && model.geometry_url) {
+        // Load geometry from stored URL
+        const response = await fetch(model.geometry_url)
+        const geometryData = await response.json()
+
+        const geom: GeometryData = {
+          vertices: new Float32Array(geometryData.vertices),
+          indices: new Uint32Array(geometryData.indices),
+          normals: new Float32Array(geometryData.normals),
+        }
+
+        setGeometry(geom)
+        setCode("") // No code for STL imports
+        setParameters([])
+      } else if (!isStlImport) {
+        // Normal JSCAD model - compile the code
+        setCode(model.code)
+        setParameters(model.parameters || [])
+
+        const defaultParams = (model.parameters || []).reduce(
+          (acc, p) => ({ ...acc, [p.name]: p.default }),
+          {}
+        )
+        const geom = await compileJSCAD(model.code, defaultParams)
+        setGeometry(geom)
+      } else {
+        // STL import without stored geometry - can't load
+        throw new Error("This STL model was saved before geometry storage was added. Please re-import the STL file.")
+      }
 
       // Navigate to create page
       router.push("/create")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load model")
-    } finally {
       setLoadingModel(null)
     }
   }
@@ -119,6 +142,7 @@ export default function MyModelsPage() {
       category: model.category,
       dimensions: model.dimensions,
       thumbnail_url: model.thumbnail_url,
+      geometry_url: model.geometry_url, // Copy geometry URL for STL imports
       is_public: false,
     })
 
@@ -138,16 +162,37 @@ export default function MyModelsPage() {
     setError(null)
 
     try {
-      // Compile the model to get geometry
-      const defaultParams = (model.parameters || []).reduce(
-        (acc, p) => ({ ...acc, [p.name]: p.default }),
-        {}
-      )
-      const geom = await compileJSCAD(model.code, defaultParams)
+      // Check if this is an STL import
+      const isStlImport = model.geometry_url ||
+        !model.code ||
+        model.code.includes("// Imported STL")
+
+      let geom: GeometryData
+
+      if (isStlImport && model.geometry_url) {
+        // Load geometry from stored URL
+        const response = await fetch(model.geometry_url)
+        const geometryData = await response.json()
+        geom = {
+          vertices: new Float32Array(geometryData.vertices),
+          indices: new Uint32Array(geometryData.indices),
+          normals: new Float32Array(geometryData.normals),
+        }
+      } else if (!isStlImport) {
+        // Compile the model to get geometry
+        const defaultParams = (model.parameters || []).reduce(
+          (acc, p) => ({ ...acc, [p.name]: p.default }),
+          {}
+        )
+        geom = await compileJSCAD(model.code, defaultParams)
+      } else {
+        throw new Error("Cannot capture thumbnail - no geometry available")
+      }
+
       setThumbnailGeometry(geom)
       setThumbnailModel(model)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to compile model")
+      setError(err instanceof Error ? err.message : "Failed to load model for thumbnail")
     } finally {
       setLoadingModel(null)
     }
