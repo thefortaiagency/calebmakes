@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Code2, Sliders, Loader2, AlertCircle } from "lucide-react"
+import { Sparkles, Download, Code2, Sliders, Loader2, AlertCircle, Save, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -11,7 +11,9 @@ import { useModelStore } from "@/lib/store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import { downloadSTL } from "@/lib/jscad/stl-export"
 import ParameterControls from "@/components/editor/ParameterControls"
+import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
+import type { User } from "@supabase/supabase-js"
 
 // Dynamic import for 3D viewer (no SSR)
 const ModelViewer = dynamic(() => import("@/components/3d/ModelViewer"), {
@@ -35,6 +37,19 @@ const SUGGESTION_PROMPTS = [
 export default function CreatePage() {
   const [prompt, setPrompt] = useState("")
   const [response, setResponse] = useState<JSCADResponse | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const supabase = createClient()
+
+  // Get user on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    getUser()
+  }, [supabase.auth])
 
   const {
     code,
@@ -117,6 +132,40 @@ export default function CreatePage() {
     if (geometry) {
       const filename = response?.description?.split(" ").slice(0, 3).join("_") || "model"
       downloadSTL(geometry, `${filename}.stl`)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!user || !code || !response) return
+
+    setIsSaving(true)
+    setSaveSuccess(false)
+
+    try {
+      const modelName = response.description?.split(" ").slice(0, 5).join(" ") || "Untitled Model"
+
+      const { error } = await supabase.from("models").insert({
+        user_id: user.id,
+        name: modelName,
+        description: response.description,
+        code: code,
+        parameters: response.parameters,
+        category: response.category || "custom",
+        difficulty: response.difficulty || "easy",
+        dimensions: response.dimensions || { width: 0, depth: 0, height: 0 },
+        estimated_print_time: response.estimatedPrintTime,
+        notes: response.notes || [],
+        is_public: false,
+      })
+
+      if (error) throw error
+
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save model")
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -234,6 +283,24 @@ export default function CreatePage() {
       <div className="flex-1 flex flex-col relative">
         {/* Toolbar */}
         <div className="absolute top-4 right-4 z-10 flex gap-2">
+          {user && response && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleSave}
+              disabled={!code || isSaving}
+              className="bg-gray-800/80 backdrop-blur-sm"
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : saveSuccess ? (
+                <Check className="w-4 h-4 mr-2 text-green-400" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {saveSuccess ? "Saved!" : "Save Model"}
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"

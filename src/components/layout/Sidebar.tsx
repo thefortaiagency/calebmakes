@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import UserMenu from "./UserMenu"
 
 const navigation = [
   { name: "Home", href: "/", icon: Home },
@@ -100,8 +101,11 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Settings */}
-      <div className="p-2 border-t border-gray-800">
+      {/* User Menu & Settings */}
+      <div className="p-2 border-t border-gray-800 space-y-2">
+        <div className={cn("flex items-center", collapsed ? "justify-center" : "px-3")}>
+          <UserMenu />
+        </div>
         <Link
           href="/settings"
           className={cn(
