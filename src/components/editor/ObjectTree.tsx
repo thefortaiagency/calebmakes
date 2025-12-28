@@ -181,21 +181,19 @@ export default function ObjectTree() {
   const deselectAll = useEditorStore((state) => state.deselectAll)
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-3 border-b border-gray-800 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-cyan-400" />
-          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-            Objects
-          </h3>
+      <div className="p-2 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Layers className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+          <span className="text-xs font-medium text-gray-300">Objects</span>
           <span className="text-xs text-gray-500">({objects.length})</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center flex-shrink-0">
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 text-xs text-gray-400 hover:text-white px-2"
+            className="h-5 text-[10px] text-gray-400 hover:text-white px-1.5"
             onClick={selectAll}
           >
             All
@@ -203,7 +201,7 @@ export default function ObjectTree() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 text-xs text-gray-400 hover:text-white px-2"
+            className="h-5 text-[10px] text-gray-400 hover:text-white px-1.5"
             onClick={deselectAll}
           >
             None
@@ -212,13 +210,12 @@ export default function ObjectTree() {
       </div>
 
       {/* Objects List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-1">
           {objects.length === 0 ? (
-            <div className="text-center text-gray-500 text-sm py-8">
-              <Box className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p>No objects in scene</p>
-              <p className="text-xs mt-1">Generate a model to start</p>
+            <div className="text-center text-gray-500 py-4">
+              <Box className="w-6 h-6 mx-auto mb-1 opacity-50" />
+              <p className="text-xs">No objects yet</p>
             </div>
           ) : (
             objects.map((object) => (
@@ -243,35 +240,12 @@ export default function ObjectTree() {
 
       {/* Selection Info */}
       {selectedObjectIds.length > 0 && (
-        <div className="p-2 border-t border-gray-800 text-xs text-gray-500">
+        <div className="p-2 border-t border-gray-800 text-xs text-gray-500 flex-shrink-0">
           {selectedObjectIds.length === 1
             ? "1 object selected"
             : `${selectedObjectIds.length} objects selected`}
         </div>
       )}
-
-      {/* Legend */}
-      <div className="p-2 border-t border-gray-800">
-        <p className="text-[10px] text-gray-600 mb-1">Object Types:</p>
-        <div className="grid grid-cols-2 gap-1 text-[10px]">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-cyan-500/20" />
-            <span className="text-gray-500">Generated</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-green-500/20" />
-            <span className="text-gray-500">Primitive</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-purple-500/20" />
-            <span className="text-gray-500">Imported</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-orange-500/20" />
-            <span className="text-gray-500">Boolean</span>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

@@ -283,7 +283,7 @@ export default function CreatePage() {
         {/* Left Panel - Objects & Input */}
         <div className={`w-72 border-r border-gray-800 flex flex-col bg-gray-900/50 ${mobileShowViewer ? 'hidden lg:flex' : 'flex'}`}>
           {/* Object Tree */}
-          <div className="h-48 border-b border-gray-800">
+          <div className="h-32 border-b border-gray-800">
             <ObjectTree />
           </div>
 
