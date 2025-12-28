@@ -2,6 +2,7 @@ import type { JSCADResponse } from "./types"
 
 export interface Template extends JSCADResponse {
   id: string
+  name: string
   prints: number
   featured?: boolean
 }
@@ -436,7 +437,7 @@ module.exports = { main, getParameterDefinitions }`,
     parameters: [
       { name: "controllerWidth", label: "Controller Width", type: "number", default: 160, min: 120, max: 200, step: 5 },
       { name: "angle", label: "Display Angle", type: "number", default: 60, min: 30, max: 80, step: 5 },
-      { name: "baseStyle", label: "Base Style", type: "select", default: "rounded", options: ["rounded", "angular"] },
+      { name: "baseStyle", label: "Base Style", type: "choice", default: "rounded", options: ["rounded", "angular"] },
     ],
     notes: [
       "Print without supports",
