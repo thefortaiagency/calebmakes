@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, Maximize2, Minimize2 } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, Maximize2, Minimize2, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -106,6 +106,18 @@ export default function CreatePage() {
 
   // Get parameters from model store
   const parameters = useModelStore((state) => state.parameters)
+
+  // Reset everything to start fresh
+  const handleReset = useCallback(() => {
+    setPrompt("")
+    setResponse(null)
+    setCode("")
+    setGeometry(null)
+    setParameters([])
+    setError(null)
+    setSaveSuccess(false)
+    setShowIdeas(false)
+  }, [setCode, setGeometry, setParameters, setError])
 
   // Add generated model to scene as an editable object
   const handleAddToScene = useCallback(() => {
@@ -298,7 +310,21 @@ export default function CreatePage() {
           <Sparkles className="w-5 h-5 text-cyan-400" />
           <h1 className="text-lg font-semibold text-gray-200">3D Creator</h1>
         </div>
-        <HelpDialog />
+        <div className="flex items-center gap-2">
+          {(code || prompt) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              className="text-gray-400 hover:text-white hover:bg-gray-800"
+              title="Start fresh"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              New
+            </Button>
+          )}
+          <HelpDialog />
+        </div>
       </div>
 
       <div className="flex flex-1 min-h-0">
