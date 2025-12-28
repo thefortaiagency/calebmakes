@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useEffect, useState, useRef } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { XR, createXRStore, XROrigin, useXR, Interactive, Controllers, Hands } from "@react-three/xr"
+import { XR, createXRStore, XROrigin, useXR, Interactive } from "@react-three/xr"
 import { Grid, Environment, Html, useProgress, Text, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 import { useModelStore } from "@/lib/store"
@@ -631,9 +631,8 @@ function VRSceneContent({ geometry, modelColor, modelName, showGrid, scale }: VR
         </Suspense>
       )}
 
-      {/* VR Controllers and Hands */}
-      <Controllers />
-      <Hands />
+      {/* VR Controllers and Hands are rendered automatically by @react-three/xr v6 */}
+      {/* The XR store is configured with hand: true and controller: true */}
 
       {/* Controller hints (only show in VR) */}
       {isPresenting && <ControllerHint />}
