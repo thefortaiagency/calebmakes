@@ -64,32 +64,21 @@ export default function LibraryPage() {
     setError,
   } = useModelStore()
 
-  // Load existing thumbnails from Supabase on mount
+  // Build Supabase thumbnail URLs for all templates
   useEffect(() => {
-    const loadSupabaseThumbnails = async () => {
-      const urls: Record<string, string> = {}
+    const urls: Record<string, string> = {}
 
-      for (const template of TEMPLATES) {
-        const { data } = supabase.storage
-          .from("thumbnails")
-          .getPublicUrl(`templates/${template.id}.png`)
+    for (const template of TEMPLATES) {
+      const { data } = supabase.storage
+        .from("thumbnails")
+        .getPublicUrl(`templates/${template.id}.png`)
 
-        // Check if thumbnail exists in Supabase
-        try {
-          const res = await fetch(data.publicUrl, { method: "HEAD" })
-          if (res.ok) {
-            urls[template.id] = `${data.publicUrl}?t=${Date.now()}`
-          }
-        } catch {
-          // Thumbnail doesn't exist in Supabase, will fall back to public folder
-        }
-      }
-
-      setThumbnailUrls(urls)
+      // Always set the Supabase URL - the img onError will handle missing images
+      urls[template.id] = data.publicUrl
     }
 
-    loadSupabaseThumbnails()
-  }, [supabase])
+    setThumbnailUrls(urls)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parse print time string to minutes for sorting
   const parsePrintTime = (timeStr: string): number => {
@@ -388,10 +377,26 @@ interface TemplateCardProps {
 }
 
 function TemplateCard({ template, loading, onCustomize, onCapture, thumbnailUrl }: TemplateCardProps) {
+  const [imgSrc, setImgSrc] = useState(thumbnailUrl || `/templates/${template.id}.png`)
   const [imageError, setImageError] = useState(false)
 
-  // Use custom thumbnail URL if available, otherwise fall back to static
-  const imgSrc = thumbnailUrl || `/templates/${template.id}.png`
+  // Update imgSrc when thumbnailUrl changes (e.g., after capture)
+  useEffect(() => {
+    if (thumbnailUrl) {
+      setImgSrc(thumbnailUrl)
+      setImageError(false)
+    }
+  }, [thumbnailUrl])
+
+  const handleImageError = () => {
+    // If Supabase URL failed, try static file
+    if (thumbnailUrl && imgSrc === thumbnailUrl) {
+      setImgSrc(`/templates/${template.id}.png`)
+    } else {
+      // Static file also failed, show placeholder
+      setImageError(true)
+    }
+  }
 
   return (
     <Card
@@ -419,7 +424,7 @@ function TemplateCard({ template, loading, onCustomize, onCapture, thumbnailUrl 
               src={imgSrc}
               alt={template.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              onError={() => setImageError(true)}
+              onError={handleImageError}
             />
           )}
           {/* Camera button for thumbnail capture */}
@@ -491,11 +496,24 @@ function TemplateCard({ template, loading, onCustomize, onCapture, thumbnailUrl 
 }
 
 // Compact list item for list view
-function TemplateListItem({ template, loading, onCustomize, thumbnailUrl }: Omit<TemplateCardProps, "featured" | "onCapture">) {
+function TemplateListItem({ template, loading, onCustomize, thumbnailUrl }: Omit<TemplateCardProps, "onCapture">) {
+  const [imgSrc, setImgSrc] = useState(thumbnailUrl || `/templates/${template.id}.png`)
   const [imageError, setImageError] = useState(false)
 
-  // Use custom thumbnail URL if available, otherwise fall back to static
-  const imgSrc = thumbnailUrl || `/templates/${template.id}.png`
+  useEffect(() => {
+    if (thumbnailUrl) {
+      setImgSrc(thumbnailUrl)
+      setImageError(false)
+    }
+  }, [thumbnailUrl])
+
+  const handleImageError = () => {
+    if (thumbnailUrl && imgSrc === thumbnailUrl) {
+      setImgSrc(`/templates/${template.id}.png`)
+    } else {
+      setImageError(true)
+    }
+  }
 
   return (
     <div
@@ -513,7 +531,7 @@ function TemplateListItem({ template, loading, onCustomize, thumbnailUrl }: Omit
             src={imgSrc}
             alt={template.name}
             className="w-full h-full object-cover"
-            onError={() => setImageError(true)}
+            onError={handleImageError}
           />
         )}
       </div>
