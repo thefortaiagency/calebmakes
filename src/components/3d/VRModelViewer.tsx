@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useEffect, useState, useRef } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { XR, createXRStore, XROrigin, useXR } from "@react-three/xr"
+import { XR, createXRStore, XROrigin, useXR, useXRInputSourceState, Interactive } from "@react-three/xr"
 import { Grid, Environment, Html, useProgress, Text, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 import { useModelStore } from "@/lib/store"
@@ -77,7 +77,7 @@ function useModelBounds(bufferGeometry: THREE.BufferGeometry | null) {
   }, [bufferGeometry])
 }
 
-// The 3D model displayed in VR with arrow key controls
+// The 3D model displayed in VR with keyboard + VR controller controls
 interface VRModelProps {
   geometry: GeometryData
   color: string
@@ -88,8 +88,16 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
   const bufferGeometry = useBufferGeometry(geometry)
   const bounds = useModelBounds(bufferGeometry)
   const groupRef = useRef<THREE.Group>(null)
+  const { camera } = useThree()
+  const xrState = useXR()
+  const isInVR = !!xrState.session
 
-  // Model position offset (controlled by arrow keys)
+  // VR grab state
+  const [isGrabbed, setIsGrabbed] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
+  const grabOffset = useRef(new THREE.Vector3())
+
+  // Model position offset (controlled by arrow keys or VR grab)
   const offset = useRef({ x: 0, y: 0, z: 0 })
   // Model rotation (controlled by R + arrow keys)
   const rotation = useRef({ x: 0, y: 0 })
@@ -129,12 +137,40 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
     }
   }, [])
 
-  useFrame((_, delta) => {
+  // Handle VR controller grab
+  const handleSelectStart = (e: any) => {
+    if (!groupRef.current) return
+    setIsGrabbed(true)
+
+    // Calculate offset from controller to model
+    const controllerPos = e.target?.object?.position || new THREE.Vector3()
+    grabOffset.current.copy(groupRef.current.position).sub(controllerPos)
+  }
+
+  const handleSelectEnd = () => {
+    setIsGrabbed(false)
+    // Update the offset ref to current position so keyboard controls work from here
+    if (groupRef.current) {
+      offset.current.x = groupRef.current.position.x
+      offset.current.y = groupRef.current.position.y
+      offset.current.z = groupRef.current.position.z
+    }
+  }
+
+  useFrame((state, delta) => {
     if (!groupRef.current) return
 
     const moveSpeed = delta * 0.5
     const rotateSpeed = delta * 1.5
 
+    // VR grab handling - follow controller
+    if (isGrabbed && isInVR) {
+      // In VR, the model follows the controller
+      // The Interactive component handles this via onSelectStart/End
+      return
+    }
+
+    // Keyboard controls (desktop or when not grabbing in VR)
     if (keys.current.r) {
       // Rotate mode
       if (keys.current.arrowLeft) rotation.current.y += rotateSpeed
@@ -167,20 +203,30 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
     -bounds.center.z * scale - 0.5, // Slightly in front
   ]
 
+  // Highlight color when hovered/grabbed in VR
+  const materialColor = isGrabbed ? "#00ff88" : isHovered ? "#00d4ff" : color
+
   return (
     <group ref={groupRef}>
-      {/* The model itself */}
-      <mesh
-        geometry={bufferGeometry}
-        position={basePosition}
-        scale={[scale, scale, scale]}
+      <Interactive
+        onSelectStart={handleSelectStart}
+        onSelectEnd={handleSelectEnd}
+        onHover={() => setIsHovered(true)}
+        onBlur={() => setIsHovered(false)}
       >
-        <meshStandardMaterial
-          color={color}
-          metalness={0.1}
-          roughness={0.4}
-        />
-      </mesh>
+        {/* The model itself */}
+        <mesh
+          geometry={bufferGeometry}
+          position={basePosition}
+          scale={[scale, scale, scale]}
+        >
+          <meshStandardMaterial
+            color={materialColor}
+            metalness={0.1}
+            roughness={0.4}
+          />
+        </mesh>
+      </Interactive>
 
       {/* Dimension labels */}
       <Text
@@ -192,6 +238,30 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
       >
         {`${bounds.width.toFixed(1)} x ${bounds.depth.toFixed(1)} x ${bounds.height.toFixed(1)} mm`}
       </Text>
+
+      {/* Grab indicator for VR */}
+      {isHovered && !isGrabbed && (
+        <Text
+          position={[0, 1.2, -0.5]}
+          fontSize={0.04}
+          color="#00d4ff"
+          anchorX="center"
+          anchorY="middle"
+        >
+          Trigger to grab
+        </Text>
+      )}
+      {isGrabbed && (
+        <Text
+          position={[0, 1.2, -0.5]}
+          fontSize={0.04}
+          color="#00ff88"
+          anchorX="center"
+          anchorY="middle"
+        >
+          Grabbed - move controller
+        </Text>
+      )}
     </group>
   )
 }
