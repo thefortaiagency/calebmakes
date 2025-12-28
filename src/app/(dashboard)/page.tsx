@@ -1,9 +1,11 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Sparkles, Library, Printer, Trophy, ArrowRight, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { TEMPLATES } from "@/lib/templates"
 
 const quickActions = [
   {
@@ -36,12 +38,8 @@ const quickActions = [
   },
 ]
 
-const featuredTemplates = [
-  { name: "Phone Stand", prints: 1234, difficulty: "Easy" },
-  { name: "Cable Organizer", prints: 892, difficulty: "Easy" },
-  { name: "Pencil Holder", prints: 756, difficulty: "Easy" },
-  { name: "Headphone Hook", prints: 643, difficulty: "Medium" },
-]
+// Get featured templates from the library
+const featuredTemplates = TEMPLATES.filter(t => t.featured).slice(0, 4)
 
 export default function HomePage() {
   return (
@@ -144,21 +142,28 @@ export default function HomePage() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {featuredTemplates.map((template) => (
-            <Card
-              key={template.name}
-              className="bg-gray-900/50 border-gray-800 hover:border-cyan-500/30 transition-colors cursor-pointer"
-            >
-              <CardContent className="p-4">
-                <div className="aspect-square rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 mb-3 flex items-center justify-center">
-                  <Printer className="w-8 h-8 text-gray-600" />
-                </div>
-                <h3 className="font-medium text-sm">{template.name}</h3>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-500">{template.prints} prints</span>
-                  <span className="text-xs text-cyan-400">{template.difficulty}</span>
-                </div>
-              </CardContent>
-            </Card>
+            <Link key={template.id} href="/library">
+              <Card className="bg-gray-900/50 border-gray-800 hover:border-cyan-500/30 transition-colors cursor-pointer group">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="aspect-square rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 mb-3 relative overflow-hidden">
+                    <Image
+                      src={`/templates/${template.id}.png`}
+                      alt={template.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      sizes="(max-width: 640px) 50vw, 25vw"
+                    />
+                  </div>
+                  <h3 className="font-medium text-sm group-hover:text-cyan-400 transition-colors line-clamp-1">
+                    {template.name}
+                  </h3>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs text-gray-500">{template.prints.toLocaleString()} prints</span>
+                    <span className="text-xs text-cyan-400 capitalize">{template.difficulty}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       </div>
