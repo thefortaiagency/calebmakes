@@ -1,6 +1,7 @@
 "use client"
 
-import { Settings, User, Printer, Palette, Bell, Shield, HelpCircle } from "lucide-react"
+import { Settings, User, Printer, Palette, Bell, Shield, HelpCircle, ImageIcon } from "lucide-react"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -189,6 +190,25 @@ export default function SettingsPage() {
               </div>
               <Switch defaultChecked />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Template Thumbnails */}
+        <Card className="bg-gray-900/50 border-gray-800">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-cyan-400" />
+              <CardTitle>Template Thumbnails</CardTitle>
+            </div>
+            <CardDescription>Generate preview images for the template library</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/settings/thumbnails">
+              <Button className="w-full bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700">
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Open Thumbnail Generator
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
