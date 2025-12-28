@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Library, Search, Filter, Printer } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Library, Search, Filter, Printer, Star, Sparkles } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -13,103 +14,62 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-
-const TEMPLATES = [
-  {
-    id: "1",
-    name: "Phone Stand",
-    description: "Adjustable phone stand with cable routing",
-    category: "phone-stand",
-    difficulty: "Easy",
-    prints: 1234,
-    estimatedTime: "45 min",
-  },
-  {
-    id: "2",
-    name: "Cable Organizer",
-    description: "Desktop cable management with 5 slots",
-    category: "cable-organizer",
-    difficulty: "Easy",
-    prints: 892,
-    estimatedTime: "30 min",
-  },
-  {
-    id: "3",
-    name: "Pencil Holder",
-    description: "Hexagonal pencil cup with decorative rings",
-    category: "pencil-holder",
-    difficulty: "Easy",
-    prints: 756,
-    estimatedTime: "1 hr",
-  },
-  {
-    id: "4",
-    name: "Headphone Hook",
-    description: "Wall-mounted headphone holder with screw holes",
-    category: "wall-mount",
-    difficulty: "Medium",
-    prints: 643,
-    estimatedTime: "40 min",
-  },
-  {
-    id: "5",
-    name: "Storage Box",
-    description: "Parametric box with snap-fit lid",
-    category: "box-with-lid",
-    difficulty: "Medium",
-    prints: 521,
-    estimatedTime: "2 hr",
-  },
-  {
-    id: "6",
-    name: "Tablet Stand",
-    description: "Sturdy tablet holder with adjustable angle",
-    category: "tablet-stand",
-    difficulty: "Medium",
-    prints: 489,
-    estimatedTime: "1.5 hr",
-  },
-  {
-    id: "7",
-    name: "Desk Organizer",
-    description: "Multi-compartment desk organizer",
-    category: "desk-organizer",
-    difficulty: "Advanced",
-    prints: 367,
-    estimatedTime: "3 hr",
-  },
-  {
-    id: "8",
-    name: "Controller Stand",
-    description: "Gaming controller display stand",
-    category: "decoration",
-    difficulty: "Easy",
-    prints: 298,
-    estimatedTime: "50 min",
-  },
-]
-
-const CATEGORIES = [
-  { value: "all", label: "All Categories" },
-  { value: "phone-stand", label: "Phone Stands" },
-  { value: "tablet-stand", label: "Tablet Stands" },
-  { value: "cable-organizer", label: "Cable Organizers" },
-  { value: "box-with-lid", label: "Boxes" },
-  { value: "wall-mount", label: "Wall Mounts" },
-  { value: "pencil-holder", label: "Pencil Holders" },
-  { value: "desk-organizer", label: "Desk Organizers" },
-  { value: "decoration", label: "Decorations" },
-]
+import { TEMPLATES, CATEGORIES } from "@/lib/templates"
+import { useModelStore } from "@/lib/store"
+import { compileJSCAD } from "@/lib/jscad/compiler"
 
 export default function LibraryPage() {
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("all")
+  const [loading, setLoading] = useState<string | null>(null)
+  const router = useRouter()
+
+  const {
+    setCode,
+    setParameters,
+    setGeometry,
+    setError,
+  } = useModelStore()
 
   const filteredTemplates = TEMPLATES.filter((template) => {
-    const matchesSearch = template.name.toLowerCase().includes(search.toLowerCase())
+    const matchesSearch =
+      template.name.toLowerCase().includes(search.toLowerCase()) ||
+      template.description.toLowerCase().includes(search.toLowerCase())
     const matchesCategory = category === "all" || template.category === category
     return matchesSearch && matchesCategory
   })
+
+  const handleCustomize = async (templateId: string) => {
+    const template = TEMPLATES.find((t) => t.id === templateId)
+    if (!template) return
+
+    setLoading(templateId)
+    setError(null)
+
+    try {
+      // Set the code and parameters in the store
+      setCode(template.code)
+      setParameters(template.parameters)
+
+      // Pre-compile the model
+      const defaultParams = template.parameters.reduce(
+        (acc, p) => ({ ...acc, [p.name]: p.default }),
+        {}
+      )
+      const geom = await compileJSCAD(template.code, defaultParams)
+      setGeometry(geom)
+
+      // Navigate to create page
+      router.push("/create")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load template")
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  const featuredTemplates = filteredTemplates.filter((t) => t.featured)
+  const otherTemplates = filteredTemplates.filter((t) => !t.featured)
 
   return (
     <div className="flex flex-col h-full">
@@ -120,7 +80,7 @@ export default function LibraryPage() {
           <h1 className="text-2xl font-bold">Model Library</h1>
         </div>
         <p className="text-gray-400">
-          Browse pre-made templates and customize them to your needs
+          Browse pre-made templates with real JSCAD code. Customize parameters and make them your own!
         </p>
       </div>
 
@@ -152,49 +112,42 @@ export default function LibraryPage() {
 
       {/* Grid */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredTemplates.map((template) => (
-            <Card
-              key={template.id}
-              className="bg-gray-900/50 border-gray-800 hover:border-cyan-500/30 transition-all duration-300 cursor-pointer group"
-            >
-              <CardContent className="p-4">
-                {/* Preview */}
-                <div className="aspect-square rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 mb-4 flex items-center justify-center group-hover:from-gray-700 group-hover:to-gray-800 transition-colors">
-                  <Printer className="w-12 h-12 text-gray-600 group-hover:text-cyan-500/50 transition-colors" />
-                </div>
+        {/* Featured Section */}
+        {featuredTemplates.length > 0 && category === "all" && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Star className="w-5 h-5 text-yellow-400" />
+              <h2 className="text-lg font-semibold">Featured Templates</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {featuredTemplates.map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  loading={loading === template.id}
+                  featured
+                  onCustomize={handleCustomize}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
-                {/* Info */}
-                <h3 className="font-semibold group-hover:text-cyan-400 transition-colors">
-                  {template.name}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                  {template.description}
-                </p>
-
-                {/* Meta */}
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {template.difficulty}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs text-gray-400 border-gray-700">
-                      {template.estimatedTime}
-                    </Badge>
-                  </div>
-                  <span className="text-xs text-gray-500">{template.prints} prints</span>
-                </div>
-
-                {/* Action */}
-                <Button
-                  variant="secondary"
-                  className="w-full mt-4 bg-gray-800 hover:bg-cyan-500/20 hover:text-cyan-400"
-                >
-                  Customize
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+        {/* All Templates */}
+        <div>
+          {category === "all" && featuredTemplates.length > 0 && (
+            <h2 className="text-lg font-semibold mb-4">All Templates</h2>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {(category === "all" ? otherTemplates : filteredTemplates).map((template) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                loading={loading === template.id}
+                onCustomize={handleCustomize}
+              />
+            ))}
+          </div>
         </div>
 
         {filteredTemplates.length === 0 && (
@@ -206,5 +159,89 @@ export default function LibraryPage() {
         )}
       </div>
     </div>
+  )
+}
+
+interface TemplateCardProps {
+  template: (typeof TEMPLATES)[0]
+  loading: boolean
+  featured?: boolean
+  onCustomize: (id: string) => void
+}
+
+function TemplateCard({ template, loading, featured, onCustomize }: TemplateCardProps) {
+  return (
+    <Card
+      className={`border-gray-800 transition-all duration-300 cursor-pointer group ${
+        featured
+          ? "bg-gradient-to-br from-yellow-500/5 to-amber-500/5 hover:border-yellow-500/30"
+          : "bg-gray-900/50 hover:border-cyan-500/30"
+      }`}
+    >
+      <CardContent className="p-4">
+        {/* Preview */}
+        <div className="aspect-square rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 mb-4 flex items-center justify-center group-hover:from-gray-700 group-hover:to-gray-800 transition-colors relative">
+          <Printer className="w-12 h-12 text-gray-600 group-hover:text-cyan-500/50 transition-colors" />
+          {featured && (
+            <div className="absolute top-2 right-2">
+              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <h3 className={`font-semibold transition-colors ${featured ? "group-hover:text-yellow-400" : "group-hover:text-cyan-400"}`}>
+          {template.name}
+        </h3>
+        <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+          {template.description}
+        </p>
+
+        {/* Parameters count */}
+        <p className="text-xs text-cyan-400 mt-2">
+          {template.parameters.length} adjustable parameters
+        </p>
+
+        {/* Meta */}
+        <div className="flex items-center justify-between mt-3">
+          <div className="flex gap-2">
+            <Badge variant="secondary" className="text-xs capitalize">
+              {template.difficulty}
+            </Badge>
+            <Badge variant="outline" className="text-xs text-gray-400 border-gray-700">
+              {template.estimatedPrintTime}
+            </Badge>
+          </div>
+          <span className="text-xs text-gray-500">{template.prints.toLocaleString()} prints</span>
+        </div>
+
+        {/* Action */}
+        <Button
+          onClick={(e) => {
+            e.stopPropagation()
+            onCustomize(template.id)
+          }}
+          disabled={loading}
+          variant="secondary"
+          className={`w-full mt-4 ${
+            featured
+              ? "bg-yellow-500/10 hover:bg-yellow-500/20 hover:text-yellow-400"
+              : "bg-gray-800 hover:bg-cyan-500/20 hover:text-cyan-400"
+          }`}
+        >
+          {loading ? (
+            <>
+              <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
+              Loading...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 mr-2" />
+              Customize
+            </>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
