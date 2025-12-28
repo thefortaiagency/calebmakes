@@ -93,7 +93,7 @@ export default function CreatePage() {
   }, [parameterValues, code, compileModel])
 
   // Generate model from AI
-  const handleGenerate = async () => {
+  const handleGenerate = async (retryCount = 0) => {
     if (!prompt.trim()) return
 
     setIsGenerating(true)
@@ -122,7 +122,15 @@ export default function CreatePage() {
       )
       setGeometry(geom)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const errorMessage = err instanceof Error ? err.message : "Something went wrong"
+
+      // Auto-retry once for JSCAD geometry errors
+      if (retryCount < 1 && errorMessage.includes("roundRadius")) {
+        console.log("Retrying due to geometry error...")
+        return handleGenerate(retryCount + 1)
+      }
+
+      setError(errorMessage)
     } finally {
       setIsGenerating(false)
     }
