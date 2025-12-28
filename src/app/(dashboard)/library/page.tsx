@@ -185,12 +185,10 @@ export default function LibraryPage() {
   }, [setError])
 
   // Handle thumbnail captured and upload
-  // IMPORTANT: Capture templateId synchronously before async operations
-  // because capturingTemplate will be cleared when modal closes
-  const handleThumbnailCaptured = useCallback(async (imageData: string) => {
-    // Capture the template ID synchronously before modal closes
-    const templateId = capturingTemplate?.id
-    if (!templateId) return
+  const handleThumbnailCaptured = async (imageData: string) => {
+    if (!capturingTemplate) return
+
+    const templateId = capturingTemplate.id
 
     try {
       // Convert base64 to blob
@@ -226,7 +224,7 @@ export default function LibraryPage() {
       console.error("Failed to save thumbnail:", err)
       setError(err instanceof Error ? err.message : "Failed to save thumbnail")
     }
-  }, [capturingTemplate, setError])
+  }
 
   const featuredTemplates = filteredTemplates.filter((t) => t.featured)
   const otherTemplates = filteredTemplates.filter((t) => !t.featured)

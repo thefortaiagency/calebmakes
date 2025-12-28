@@ -19,7 +19,7 @@ interface ThumbnailCaptureModalProps {
   isOpen: boolean
   onClose: () => void
   geometry: GeometryData
-  onCapture: (imageData: string) => void
+  onCapture: (imageData: string) => void | Promise<void>
   title?: string
 }
 
@@ -31,6 +31,7 @@ export default function ThumbnailCaptureModal({
   title = "Capture Thumbnail",
 }: ThumbnailCaptureModalProps) {
   const [isCapturing, setIsCapturing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
 
@@ -39,6 +40,7 @@ export default function ThumbnailCaptureModal({
     if (isOpen) {
       setPreviewUrl(null)
       setIsCapturing(false)
+      setIsSaving(false)
     }
   }, [isOpen])
 
@@ -67,10 +69,16 @@ export default function ThumbnailCaptureModal({
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (previewUrl) {
-      onCapture(previewUrl)
-      onClose()
+      setIsSaving(true)
+      try {
+        await onCapture(previewUrl)
+        onClose()
+      } catch (err) {
+        console.error("Failed to save:", err)
+        setIsSaving(false)
+      }
     }
   }
 
@@ -128,16 +136,27 @@ export default function ThumbnailCaptureModal({
               <Button
                 variant="outline"
                 onClick={() => setPreviewUrl(null)}
+                disabled={isSaving}
                 className="flex-1"
               >
                 Retake
               </Button>
               <Button
                 onClick={handleSave}
+                disabled={isSaving}
                 className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-600"
               >
-                <Check className="w-4 h-4 mr-2" />
-                Use This
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Use This
+                  </>
+                )}
               </Button>
             </>
           ) : (
