@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -71,6 +71,7 @@ export default function CreatePage() {
   const [showIdeas, setShowIdeas] = useState(false)
   const [mobileShowViewer, setMobileShowViewer] = useState(false)
   const [showAnalysis, setShowAnalysis] = useState(false)
+  const [analysisWidth, setAnalysisWidth] = useState<"normal" | "wide" | "full">("normal")
   const [showLeftPanel, setShowLeftPanel] = useState(true)
   const supabase = createClient()
 
@@ -246,26 +247,34 @@ export default function CreatePage() {
   }
 
   const handleSave = async () => {
-    if (!user || !code || !response) return
+    if (!user || !code) return
 
     setIsSaving(true)
     setSaveSuccess(false)
 
     try {
-      const modelName = response.description?.split(" ").slice(0, 5).join(" ") || "Untitled Model"
+      // Generate name from response description, parameters, or default
+      let modelName = "Custom Model"
+      if (response?.description) {
+        modelName = response.description.split(" ").slice(0, 5).join(" ")
+      } else if (parameters.length > 0) {
+        // Try to extract a meaningful name from the code or use parameter-based naming
+        modelName = `Custom Model ${new Date().toLocaleDateString()}`
+      }
+
       const thumbnailUrl = await captureThumbnail()
 
       const { error } = await supabase.from("models").insert({
         user_id: user.id,
         name: modelName,
-        description: response.description,
+        description: response?.description || `Custom parametric model with ${parameters.length} parameters`,
         code: code,
-        parameters: response.parameters,
-        category: response.category || "custom",
-        difficulty: response.difficulty || "easy",
-        dimensions: response.dimensions || { width: 0, depth: 0, height: 0 },
-        estimated_print_time: response.estimatedPrintTime,
-        notes: response.notes || [],
+        parameters: response?.parameters || parameters,
+        category: response?.category || "custom",
+        difficulty: response?.difficulty || "easy",
+        dimensions: response?.dimensions || { width: 0, depth: 0, height: 0 },
+        estimated_print_time: response?.estimatedPrintTime || "Varies",
+        notes: response?.notes || [],
         thumbnail_url: thumbnailUrl,
         is_public: false,
       })
@@ -456,13 +465,14 @@ export default function CreatePage() {
                 <span className="hidden lg:inline">Add to Scene</span>
               </Button>
             )}
-            {user && response && (
+            {user && code && (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={handleSave}
-                disabled={!code || isSaving}
+                disabled={isSaving}
                 className="bg-gray-800/80 backdrop-blur-sm"
+                title="Save to My Models"
               >
                 {isSaving ? (
                   <Loader2 className="w-4 h-4 animate-spin lg:mr-2" />
@@ -519,19 +529,30 @@ export default function CreatePage() {
 
         {/* Right Panel - Print Analysis */}
         {showAnalysis && (
-          <div className="w-80 border-l border-gray-800 bg-gray-900/50 hidden lg:flex lg:flex-col">
+          <div className={`border-l border-gray-800 bg-gray-900/50 hidden lg:flex lg:flex-col transition-all duration-200 ${
+            analysisWidth === "full" ? "w-[500px]" : analysisWidth === "wide" ? "w-96" : "w-80"
+          }`}>
             <div className="flex items-center justify-between p-3 border-b border-gray-800">
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-cyan-400" />
                 <h3 className="text-sm font-semibold text-gray-300">Print Analysis</h3>
               </div>
-              <button
-                onClick={() => setShowAnalysis(false)}
-                className="p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
-                title="Close analysis panel"
-              >
-                <PanelRightClose className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setAnalysisWidth(analysisWidth === "full" ? "normal" : analysisWidth === "wide" ? "full" : "wide")}
+                  className="p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
+                  title={analysisWidth === "full" ? "Minimize panel" : "Expand panel"}
+                >
+                  {analysisWidth === "full" ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => setShowAnalysis(false)}
+                  className="p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
+                  title="Close analysis panel"
+                >
+                  <PanelRightClose className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-auto">
               <PrintAnalysisDashboard />

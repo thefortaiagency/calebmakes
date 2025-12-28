@@ -1,0 +1,287 @@
+{
+  "printer": {
+    "manufacturer": "Bambu Lab",
+    "model": "P1S",
+    "series": "P1 Series",
+    "type": "FDM (Fused Deposition Modeling)",
+    "architecture": "CoreXY",
+    "enclosure": "Fully Enclosed"
+  },
+  "build_volume": {
+    "width_mm": 256,
+    "depth_mm": 256,
+    "height_mm": 256,
+    "volume_liters": 16.777
+  },
+  "physical_dimensions": {
+    "width_mm": 389,
+    "depth_mm": 389,
+    "height_mm": 457,
+    "net_weight_kg": 12.95,
+    "package_width_mm": 485,
+    "package_depth_mm": 480,
+    "package_height_mm": 528,
+    "gross_weight_kg": 14.30
+  },
+  "frame": {
+    "chassis_material": "Welded Steel",
+    "shell_material": "Plastic & Glass"
+  },
+  "motion_system": {
+    "architecture": "CoreXY",
+    "max_speed_mm_per_s": 500,
+    "max_acceleration_mm_per_s2": 20000,
+    "acceleration_time_to_max_speed_s": 0.025,
+    "belt_tensioning": "Semi-automatic with resonance frequency identification"
+  },
+  "toolhead": {
+    "hotend_type": "All-Metal",
+    "nozzle_material": "Stainless Steel",
+    "nozzle_diameter_included_mm": 0.4,
+    "nozzle_diameters_optional_mm": [0.2, 0.6, 0.8],
+    "max_hotend_temperature_c": 300,
+    "extruder_type": "Direct-Drive",
+    "extruder_gears": "Steel",
+    "filament_diameter_mm": 1.75,
+    "filament_cutter": true,
+    "max_hotend_flow_mm3_per_s": 32,
+    "flow_test_conditions": {
+      "material": "Bambu ABS",
+      "temperature_c": 280,
+      "model": "150x150mm single wall"
+    }
+  },
+  "toolhead_controller": {
+    "mcu": "Spintrol SPC1168APE48",
+    "motor_driver": "AT8236",
+    "connection_to_mc": "6-conductor cable (likely 24V + CAN bus)"
+  },
+  "heated_bed": {
+    "max_temperature_c": 100,
+    "build_plate_included": "Bambu Dual-Sided Textured PEI Plate",
+    "build_plates_optional": [
+      "Bambu Cool Plate",
+      "Bambu Engineering Plate",
+      "Bambu High Temperature Plate"
+    ],
+    "auto_bed_leveling": true
+  },
+  "cooling_system": {
+    "part_cooling_fan": "Closed Loop Control",
+    "hotend_fan": "Closed Loop Control",
+    "control_board_fan": "Closed Loop Control",
+    "chamber_temperature_regulator_fan": "Closed Loop Control",
+    "auxiliary_part_cooling_fan": "Closed Loop Control",
+    "air_filter": "Activated Carbon Filter"
+  },
+  "materials": {
+    "ideal": ["PLA", "PETG", "TPU", "PVA", "PET", "ABS", "ASA"],
+    "capable": ["PA", "PC"],
+    "not_recommended": ["Carbon Fiber Reinforced Polymers", "Glass Fiber Reinforced Polymers"]
+  },
+  "electronics": {
+    "application_processor": {
+      "location": "Behind user interface on front",
+      "display": "2.7-inch 192x64 Screen",
+      "connectivity": ["Wi-Fi", "Bluetooth", "Bambu-Bus"],
+      "storage": "Micro SD Card (32 GB included)",
+      "control_interface": ["Button", "APP", "PC Application"],
+      "usb_output_power": "5V/1.5A",
+      "camera": {
+        "resolution": "1280x720",
+        "frame_rate_fps": 0.5,
+        "timelapse_supported": true
+      }
+    },
+    "machine_controller": {
+      "location": "Back of printer behind metal rear panel",
+      "mcu": "Spintrol SPC2168APE80",
+      "motion_controller": "Dual-Core Cortex M4",
+      "motor_drivers": "AT8236 (for A, B, and Z axis steppers)",
+      "connectors": [
+        "Z Motor",
+        "Right motor (A axis)",
+        "Left motor (B axis)",
+        "Chamber temperature regulator fan",
+        "Auxiliary part cooling fan",
+        "MC board fan",
+        "MC board to AC board connecting cable",
+        "AMS interface board",
+        "AP main board (power and communication)",
+        "TH board (power and communication)"
+      ]
+    }
+  },
+  "electrical": {
+    "input_voltage": "100-240 VAC",
+    "frequency_hz": "50/60",
+    "max_power_220v_w": 1000,
+    "max_power_110v_w": 350
+  },
+  "connectivity": {
+    "wifi": {
+      "frequency_range_mhz": {
+        "ce": "2412-2472",
+        "fcc": "2412-2462",
+        "srrc": "2400-2483.5"
+      },
+      "transmitter_power_dbm": {
+        "fcc": 21.5,
+        "ce": 20,
+        "srrc": 20
+      },
+      "protocol": "IEEE802.11 b/g/n"
+    },
+    "bluetooth": {
+      "frequency_band_mhz": {
+        "ce_fcc": "2402-2480",
+        "srrc": "2400-2483.5"
+      },
+      "transmitter_power_dbm": {
+        "fcc": 20,
+        "srrc": 20,
+        "ce": 10
+      },
+      "protocol": "BLE5.0"
+    },
+    "ftp": {
+      "port": 990,
+      "username": "bblp",
+      "password_location": "BambuStudio.conf under 'access_code'"
+    }
+  },
+  "sensors": {
+    "filament_runout_sensor": true,
+    "filament_odometry": "Optional with AMS",
+    "power_loss_recovery": true,
+    "automatic_bed_leveling": true,
+    "chamber_camera": true
+  },
+  "software": {
+    "primary_slicer": "Bambu Studio",
+    "slicer_base": "PrusaSlicer",
+    "third_party_slicers": ["SuperSlicer", "PrusaSlicer", "Cura"],
+    "supported_os": ["Windows", "macOS"],
+    "mobile_app": "Bambu Handy",
+    "remote_access": "FTP, Cloud API"
+  },
+  "package_contents": [
+    "P1S 3D Printer",
+    "2.7-inch LCD Screen",
+    "Spool Holder",
+    "Sample Filament (Bambu PLA)",
+    "Spare Hotend",
+    "Nozzle Wiping Pads",
+    "Power Cord",
+    "Unclogging Pin Tool",
+    "PTFE Tube",
+    "Bambu Scraper",
+    "Allen Keys",
+    "Hotend Clip",
+    "Double-sided Tape",
+    "32 GB MicroSD Card",
+    "Bambu Dual-Sided Textured PEI Plate"
+  ],
+  "github_resources": [
+    {
+      "name": "BambuStudio",
+      "url": "https://github.com/bambulab/BambuStudio",
+      "description": "Official PC slicing software",
+      "language": "C++",
+      "stars": 3600,
+      "license": "GNU AGPL v3"
+    },
+    {
+      "name": "bambulabs_api",
+      "url": "https://github.com/BambuTools/bambulabs_api",
+      "description": "Unofficial Python API",
+      "language": "Python",
+      "stars": 245,
+      "license": "MIT"
+    },
+    {
+      "name": "OpenBL",
+      "url": "https://github.com/opensourcemanufacturing/OpenBL",
+      "description": "Hardware exploration and documentation",
+      "stars": 41
+    },
+    {
+      "name": "bambu-link",
+      "url": "https://github.com/Evan-2007/bambu-link",
+      "description": "Node.js module for printer control",
+      "language": "TypeScript",
+      "stars": 7
+    },
+    {
+      "name": "P1S-GCODE",
+      "url": "https://github.com/Justagwas/P1S-GCODE",
+      "description": "Custom-optimized G-Code",
+      "stars": 10
+    },
+    {
+      "name": "BambuP1Streamer",
+      "url": "https://github.com/slynn1324/BambuP1Streamer",
+      "description": "MJPEG camera stream access"
+    }
+  ],
+  "api_capabilities": [
+    "Connect and control printer programmatically",
+    "Monitor printer status in real-time",
+    "Execute commands and manage print jobs",
+    "Camera feed access",
+    "FTP file transfer",
+    "Cloud-based remote control"
+  ],
+  "custom_designs": [
+    {
+      "name": "Modular Magnetic Tool Holder System",
+      "description": "Customizable tool organization with magnetic mounting",
+      "dimensions_mm": {
+        "base_width": 80,
+        "base_height": 120,
+        "base_depth": 15
+      },
+      "material": "PETG or ABS",
+      "magnets_required": "10mm x 3mm N52 neodymium (4 per module)"
+    },
+    {
+      "name": "Ventilated Riser with LED Lighting",
+      "description": "Increases chamber height by 60mm with adjustable ventilation",
+      "dimensions_mm": {
+        "width": 389,
+        "depth": 389,
+        "height": 60
+      },
+      "material": "PC or ABS",
+      "features": ["Adjustable ventilation slots", "Integrated LED channels"]
+    },
+    {
+      "name": "Stackable AMS Hub with Desiccant System",
+      "description": "Stable AMS stacking with integrated humidity control",
+      "dimensions_mm": {
+        "width": 320,
+        "depth": 280,
+        "height": 40
+      },
+      "material": "PLA or PETG",
+      "desiccant_capacity_ml": 400
+    },
+    {
+      "name": "Enhanced Poop Chute with Magnetic Bin",
+      "description": "Improved waste collection with easy-remove magnetic bin",
+      "chute_angle_degrees": 60,
+      "bin_capacity_liters": 1.2,
+      "material": "PETG or PLA",
+      "magnets_required": "6mm x 3mm N52 neodymium (6 total)"
+    }
+  ],
+  "technical_notes": {
+    "setup_time_minutes": 15,
+    "multi_color_capability": "Up to 16 colors with AMS",
+    "vibration_compensation": "Active XY axis compensation",
+    "pressure_advance": true,
+    "arc_path_support": "G2/G3 commands",
+    "step_format_support": true,
+    "recommended_humidity": "Below 85% RH"
+  }
+}
