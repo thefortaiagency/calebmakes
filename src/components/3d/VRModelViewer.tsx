@@ -1,7 +1,7 @@
 "use client"
 
-import { Suspense, useMemo, useEffect, useState } from "react"
-import { Canvas } from "@react-three/fiber"
+import { Suspense, useMemo, useEffect, useState, useRef } from "react"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { XR, createXRStore, XROrigin, useXR } from "@react-three/xr"
 import { Grid, Environment, Html, useProgress, Text, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
@@ -77,7 +77,7 @@ function useModelBounds(bufferGeometry: THREE.BufferGeometry | null) {
   }, [bufferGeometry])
 }
 
-// The 3D model displayed in VR
+// The 3D model displayed in VR with arrow key controls
 interface VRModelProps {
   geometry: GeometryData
   color: string
@@ -87,22 +87,92 @@ interface VRModelProps {
 function VRModel({ geometry, color, scale }: VRModelProps) {
   const bufferGeometry = useBufferGeometry(geometry)
   const bounds = useModelBounds(bufferGeometry)
+  const groupRef = useRef<THREE.Group>(null)
+
+  // Model position offset (controlled by arrow keys)
+  const offset = useRef({ x: 0, y: 0, z: 0 })
+  // Model rotation (controlled by R + arrow keys)
+  const rotation = useRef({ x: 0, y: 0 })
+  const keys = useRef({
+    arrowUp: false, arrowDown: false, arrowLeft: false, arrowRight: false,
+    r: false, // hold R to rotate instead of move
+    pageUp: false, pageDown: false, // vertical movement
+  })
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp') keys.current.arrowUp = true
+      if (e.key === 'ArrowDown') keys.current.arrowDown = true
+      if (e.key === 'ArrowLeft') keys.current.arrowLeft = true
+      if (e.key === 'ArrowRight') keys.current.arrowRight = true
+      if (e.key === 'r' || e.key === 'R') keys.current.r = true
+      if (e.key === 'PageUp') keys.current.pageUp = true
+      if (e.key === 'PageDown') keys.current.pageDown = true
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp') keys.current.arrowUp = false
+      if (e.key === 'ArrowDown') keys.current.arrowDown = false
+      if (e.key === 'ArrowLeft') keys.current.arrowLeft = false
+      if (e.key === 'ArrowRight') keys.current.arrowRight = false
+      if (e.key === 'r' || e.key === 'R') keys.current.r = false
+      if (e.key === 'PageUp') keys.current.pageUp = false
+      if (e.key === 'PageDown') keys.current.pageDown = false
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return
+
+    const moveSpeed = delta * 0.5
+    const rotateSpeed = delta * 1.5
+
+    if (keys.current.r) {
+      // Rotate mode
+      if (keys.current.arrowLeft) rotation.current.y += rotateSpeed
+      if (keys.current.arrowRight) rotation.current.y -= rotateSpeed
+      if (keys.current.arrowUp) rotation.current.x += rotateSpeed
+      if (keys.current.arrowDown) rotation.current.x -= rotateSpeed
+    } else {
+      // Move mode
+      if (keys.current.arrowUp) offset.current.z -= moveSpeed
+      if (keys.current.arrowDown) offset.current.z += moveSpeed
+      if (keys.current.arrowLeft) offset.current.x -= moveSpeed
+      if (keys.current.arrowRight) offset.current.x += moveSpeed
+    }
+
+    // Vertical movement
+    if (keys.current.pageUp) offset.current.y += moveSpeed
+    if (keys.current.pageDown) offset.current.y -= moveSpeed
+
+    // Apply transforms
+    groupRef.current.position.set(offset.current.x, offset.current.y, offset.current.z)
+    groupRef.current.rotation.set(rotation.current.x, rotation.current.y, 0)
+  })
 
   if (!bufferGeometry || !bounds) return null
 
-  // Position model so it sits on the "table" at 0.8m height, centered
-  const position: [number, number, number] = [
+  // Base position: sits on the "table" at 0.8m height, centered
+  const basePosition: [number, number, number] = [
     -bounds.center.x * scale,
     0.8 - (bufferGeometry.boundingBox!.min.y * scale), // Place on table
     -bounds.center.z * scale - 0.5, // Slightly in front
   ]
 
   return (
-    <group>
+    <group ref={groupRef}>
       {/* The model itself */}
       <mesh
         geometry={bufferGeometry}
-        position={position}
+        position={basePosition}
         scale={[scale, scale, scale]}
       >
         <meshStandardMaterial
@@ -239,6 +309,80 @@ function ControllerHint() {
   )
 }
 
+// WASD keyboard movement for desktop
+function KeyboardMovement() {
+  const { camera } = useThree()
+  const keys = useRef({
+    w: false, a: false, s: false, d: false,
+    q: false, e: false, // up/down
+    shift: false, // speed boost
+  })
+  const velocity = useRef(new THREE.Vector3())
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase()
+      if (key === 'w') keys.current.w = true
+      if (key === 'a') keys.current.a = true
+      if (key === 's') keys.current.s = true
+      if (key === 'd') keys.current.d = true
+      if (key === 'q') keys.current.q = true
+      if (key === 'e') keys.current.e = true
+      if (e.shiftKey) keys.current.shift = true
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase()
+      if (key === 'w') keys.current.w = false
+      if (key === 'a') keys.current.a = false
+      if (key === 's') keys.current.s = false
+      if (key === 'd') keys.current.d = false
+      if (key === 'q') keys.current.q = false
+      if (key === 'e') keys.current.e = false
+      if (!e.shiftKey) keys.current.shift = false
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
+
+  useFrame((_, delta) => {
+    const speed = keys.current.shift ? 4 : 2
+    const moveSpeed = speed * delta
+
+    // Get camera's forward and right vectors (ignore Y for horizontal movement)
+    const forward = new THREE.Vector3()
+    camera.getWorldDirection(forward)
+    forward.y = 0
+    forward.normalize()
+
+    const right = new THREE.Vector3()
+    right.crossVectors(forward, new THREE.Vector3(0, 1, 0))
+
+    // Calculate movement direction
+    velocity.current.set(0, 0, 0)
+
+    if (keys.current.w) velocity.current.add(forward)
+    if (keys.current.s) velocity.current.sub(forward)
+    if (keys.current.d) velocity.current.add(right)
+    if (keys.current.a) velocity.current.sub(right)
+    if (keys.current.e) velocity.current.y += 1
+    if (keys.current.q) velocity.current.y -= 1
+
+    if (velocity.current.length() > 0) {
+      velocity.current.normalize().multiplyScalar(moveSpeed)
+      camera.position.add(velocity.current)
+    }
+  })
+
+  return null
+}
+
 // Main VR scene content
 interface VRSceneContentProps {
   geometry: GeometryData | null
@@ -264,18 +408,21 @@ function VRSceneContent({ geometry, modelColor, modelName, showGrid, scale }: VR
       {/* Environment for reflections */}
       <Environment preset="studio" />
 
-      {/* OrbitControls for desktop viewing (when not in VR) */}
+      {/* Desktop controls (when not in VR) */}
       {!isPresenting && (
-        <OrbitControls
-          makeDefault
-          enablePan={true}
-          enableZoom={true}
-          target={[0, 0.8, -0.5]}
-          minDistance={0.5}
-          maxDistance={10}
-          minPolarAngle={0}
-          maxPolarAngle={Math.PI / 1.5}
-        />
+        <>
+          <OrbitControls
+            makeDefault
+            enablePan={true}
+            enableZoom={true}
+            target={[0, 0.8, -0.5]}
+            minDistance={0.5}
+            maxDistance={10}
+            minPolarAngle={0}
+            maxPolarAngle={Math.PI / 1.5}
+          />
+          <KeyboardMovement />
+        </>
       )}
 
       {/* Floor grid */}
@@ -443,10 +590,18 @@ export default function VRModelViewer({ onVRStart, onVREnd }: VRModelViewerProps
 
       {/* Instructions */}
       <div className="absolute top-4 left-4 text-xs text-gray-400 bg-gray-900/80 px-3 py-2 rounded max-w-xs">
-        <p className="font-medium text-gray-300">3D Model Preview</p>
-        <p className="mt-1">Drag to rotate • Scroll to zoom • Right-drag to pan</p>
+        <p className="font-medium text-gray-300 mb-2">3D Model Preview</p>
+        <p>
+          <span className="text-cyan-400">Camera:</span> WASD move • Q/E up/down • Shift fast
+        </p>
+        <p className="mt-1">
+          <span className="text-cyan-400">Model:</span> Arrows move • R+Arrows rotate • PgUp/Dn height
+        </p>
+        <p className="mt-1">
+          <span className="text-cyan-400">Mouse:</span> Drag orbit • Scroll zoom • Right-drag pan
+        </p>
         {isVRSupported && (
-          <p className="mt-1 text-cyan-400">VR headset detected - click Enter VR below</p>
+          <p className="mt-2 text-green-400">VR headset detected - click Enter VR below</p>
         )}
       </div>
     </div>
