@@ -291,27 +291,33 @@ export default function PrintAnalysisDashboard() {
                 <div className="flex items-center gap-2 mb-2">
                   <Ruler className="w-4 h-4 text-cyan-400" />
                   <span className="text-xs text-gray-400 uppercase tracking-wider">
-                    Dimensions
+                    Dimensions (mm)
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <span className="text-lg font-bold text-red-400">
-                      {printAnalysis.metrics.boundingBox.width}
-                    </span>
-                    <p className="text-xs text-gray-500">Width (X)</p>
+                  <div className="min-w-0">
+                    <div className="flex items-baseline justify-center gap-0.5">
+                      <span className="text-lg font-bold text-red-400 truncate">
+                        {printAnalysis.metrics.boundingBox.width.toFixed(1)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">X</p>
                   </div>
-                  <div>
-                    <span className="text-lg font-bold text-green-400">
-                      {printAnalysis.metrics.boundingBox.depth}
-                    </span>
-                    <p className="text-xs text-gray-500">Depth (Y)</p>
+                  <div className="min-w-0">
+                    <div className="flex items-baseline justify-center gap-0.5">
+                      <span className="text-lg font-bold text-green-400 truncate">
+                        {printAnalysis.metrics.boundingBox.depth.toFixed(1)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">Y</p>
                   </div>
-                  <div>
-                    <span className="text-lg font-bold text-blue-400">
-                      {printAnalysis.metrics.boundingBox.height}
-                    </span>
-                    <p className="text-xs text-gray-500">Height (Z)</p>
+                  <div className="min-w-0">
+                    <div className="flex items-baseline justify-center gap-0.5">
+                      <span className="text-lg font-bold text-blue-400 truncate">
+                        {printAnalysis.metrics.boundingBox.height.toFixed(1)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">Z</p>
                   </div>
                 </div>
               </div>
