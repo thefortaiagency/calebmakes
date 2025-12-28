@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     // Run Hunyuan3D-2 model on Replicate with retry for rate limits
     const output = await runWithRetry(() =>
       replicate.run(
-        "tencent/hunyuan3d-2:f7d5ae8f5ebadf65b6b06386c7f54fc37e7ba5aa1efb4e43faac85367ed92bfc",
+        "tencent/hunyuan3d-2:b1b9449a1277e10402781c5d41eb30c0a0683504fb23fab591ca9dfc2aabe1cb",
         {
           input: {
             image: imageInput,
