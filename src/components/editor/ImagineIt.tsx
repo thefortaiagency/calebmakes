@@ -14,6 +14,21 @@ interface ImagineItProps {
 
 type Step = "prompt" | "generating-image" | "preview-image" | "generating-3d" | "complete"
 
+const IMAGINE_SUGGESTIONS = [
+  { text: "A cute robot dog", icon: "🤖" },
+  { text: "A baby dragon", icon: "🐉" },
+  { text: "A magical unicorn", icon: "🦄" },
+  { text: "A friendly monster", icon: "👾" },
+  { text: "A space rocket", icon: "🚀" },
+  { text: "A pirate ship", icon: "🏴‍☠️" },
+  { text: "A treasure chest", icon: "💎" },
+  { text: "A cute owl", icon: "🦉" },
+  { text: "A tiny house", icon: "🏠" },
+  { text: "A race car", icon: "🏎️" },
+  { text: "A superhero mask", icon: "🦸" },
+  { text: "A wizard hat", icon: "🧙" },
+]
+
 export default function ImagineIt({ onModelGenerated }: ImagineItProps) {
   const [step, setStep] = useState<Step>("prompt")
   const [prompt, setPrompt] = useState("")
@@ -151,6 +166,19 @@ export default function ImagineIt({ onModelGenerated }: ImagineItProps) {
             onChange={(e) => setPrompt(e.target.value)}
             className="min-h-[60px] bg-gray-800 border-gray-700 resize-none text-sm"
           />
+
+          {/* Suggestion buttons */}
+          <div className="flex flex-wrap gap-1.5">
+            {IMAGINE_SUGGESTIONS.slice(0, 6).map((suggestion) => (
+              <button
+                key={suggestion.text}
+                onClick={() => setPrompt(suggestion.text)}
+                className="px-2 py-1 text-xs rounded-full bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 hover:text-purple-200 transition-colors border border-purple-500/20"
+              >
+                {suggestion.icon} {suggestion.text.replace("A ", "")}
+              </button>
+            ))}
+          </div>
 
           <Button
             onClick={handleGenerateImage}
