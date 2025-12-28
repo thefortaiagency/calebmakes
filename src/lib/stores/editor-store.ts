@@ -14,9 +14,11 @@ import type {
   Measurement,
   PrintAnalysis,
   EditorPreferences,
+  FilamentSlot,
   DEFAULT_TRANSFORM,
   DEFAULT_PREFERENCES,
 } from "../types/editor"
+import { createDefaultFilamentSlots, MATERIAL_PRESETS } from "../types/editor"
 
 // Re-export for convenience
 export { DEFAULT_TRANSFORM, DEFAULT_PREFERENCES } from "../types/editor"
@@ -60,6 +62,10 @@ interface EditorState {
   currentParameters: Parameter[]
   currentParameterValues: Record<string, number | boolean | string>
   modelColor: string
+
+  // AMS Filament Management
+  filamentSlots: FilamentSlot[]
+  amsUnitCount: number  // 1-4 AMS units
 }
 
 interface EditorActions {
@@ -141,6 +147,13 @@ interface EditorActions {
     parameterDefs: Parameter[],
     color: string
   ) => string
+
+  // AMS Filament Management
+  setAmsUnitCount: (count: number) => void
+  updateFilamentSlot: (slotId: number, updates: Partial<FilamentSlot>) => void
+  assignObjectToFilamentSlot: (objectId: string, slotId: number | null) => void
+  getFilamentSlot: (slotId: number) => FilamentSlot | undefined
+  getFilledSlots: () => FilamentSlot[]
 }
 
 // Default transform values
@@ -198,6 +211,10 @@ export const useEditorStore = create<EditorState & EditorActions>()(
     currentParameters: [],
     currentParameterValues: {},
     modelColor: "#00d4ff",
+
+    // AMS Filament Management - Default single AMS unit with 4 slots
+    filamentSlots: createDefaultFilamentSlots(1),
+    amsUnitCount: 1,
 
     // Object management
     addObject: (objectData) => {
@@ -664,6 +681,48 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
       get().recordHistory(`Imported ${name}`)
       return id
+    },
+
+    // AMS Filament Management
+    setAmsUnitCount: (count) => {
+      const validCount = Math.max(1, Math.min(4, count))
+      set({
+        amsUnitCount: validCount,
+        filamentSlots: createDefaultFilamentSlots(validCount),
+      })
+    },
+
+    updateFilamentSlot: (slotId, updates) => {
+      set((state) => ({
+        filamentSlots: state.filamentSlots.map((slot) =>
+          slot.id === slotId ? { ...slot, ...updates } : slot
+        ),
+      }))
+    },
+
+    assignObjectToFilamentSlot: (objectId, slotId) => {
+      const slot = slotId ? get().filamentSlots.find((s) => s.id === slotId) : null
+
+      set((state) => ({
+        objects: state.objects.map((obj) =>
+          obj.id === objectId
+            ? {
+                ...obj,
+                filamentSlotId: slotId ?? undefined,
+                // Update color to match the filament slot color if assigned
+                color: slot ? slot.color : obj.color,
+              }
+            : obj
+        ),
+      }))
+    },
+
+    getFilamentSlot: (slotId) => {
+      return get().filamentSlots.find((slot) => slot.id === slotId)
+    },
+
+    getFilledSlots: () => {
+      return get().filamentSlots.filter((slot) => !slot.isEmpty)
     },
   }))
 )

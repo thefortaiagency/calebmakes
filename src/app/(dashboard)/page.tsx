@@ -52,12 +52,21 @@ export default function HomePage() {
 
         <div className="relative px-8 py-12">
           <div className="max-w-4xl">
-            <h1 className="text-4xl font-bold mb-4">
-              Welcome to{" "}
-              <span className="bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                CalebMakes
-              </span>
-            </h1>
+            <div className="flex items-center gap-4 mb-4">
+              <Image
+                src="/calebmakeslogo.png"
+                alt="CalebMakes Logo"
+                width={64}
+                height={64}
+                className="object-contain"
+              />
+              <h1 className="text-4xl font-bold">
+                Welcome to{" "}
+                <span className="bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                  CalebMakes
+                </span>
+              </h1>
+            </div>
             <p className="text-xl text-gray-400 mb-6">
               Design, create, and print amazing 3D models with the power of AI.
               Just describe what you want, and watch the magic happen.

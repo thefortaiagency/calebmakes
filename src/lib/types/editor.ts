@@ -32,6 +32,9 @@ export interface SceneObject {
   locked: boolean
   color: string
 
+  // AMS filament assignment
+  filamentSlotId?: number  // Which AMS slot (1-16) this object uses
+
   // Metadata
   createdAt: number
   parentIds?: string[]  // For boolean results, tracks source objects
@@ -273,6 +276,57 @@ export const MATERIAL_PRESETS: Record<string, MaterialPreset> = {
     notes: ["Water soluble", "Support material for PLA", "Store in dry conditions"],
   },
 }
+
+// AMS Filament Slot types (Bambu Lab AMS supports up to 4 AMS units = 16 slots)
+export interface FilamentSlot {
+  id: number                  // 1-16 (Slot number)
+  amsUnit: number             // 1-4 (Which AMS unit)
+  slotInUnit: number          // 1-4 (Position within AMS unit)
+  material: keyof typeof MATERIAL_PRESETS | null  // Material type
+  color: string               // Hex color
+  name: string                // Custom name (e.g., "Bambu PLA Basic - Black")
+  isEmpty: boolean            // Whether slot has filament
+}
+
+// Default AMS configuration (single AMS unit = 4 slots)
+export const createDefaultFilamentSlots = (amsUnits: number = 1): FilamentSlot[] => {
+  const slots: FilamentSlot[] = []
+  for (let unit = 1; unit <= amsUnits; unit++) {
+    for (let slot = 1; slot <= 4; slot++) {
+      const slotNumber = (unit - 1) * 4 + slot
+      slots.push({
+        id: slotNumber,
+        amsUnit: unit,
+        slotInUnit: slot,
+        material: null,
+        color: "#808080",
+        name: `Slot ${slotNumber}`,
+        isEmpty: true,
+      })
+    }
+  }
+  return slots
+}
+
+// Common Bambu Lab filament colors
+export const BAMBU_FILAMENT_COLORS = [
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Black", hex: "#1A1A1A" },
+  { name: "Red", hex: "#E53935" },
+  { name: "Orange", hex: "#FF6B00" },
+  { name: "Yellow", hex: "#FFEB3B" },
+  { name: "Green", hex: "#4CAF50" },
+  { name: "Blue", hex: "#2196F3" },
+  { name: "Purple", hex: "#9C27B0" },
+  { name: "Pink", hex: "#E91E63" },
+  { name: "Cyan", hex: "#00BCD4" },
+  { name: "Brown", hex: "#795548" },
+  { name: "Gray", hex: "#9E9E9E" },
+  { name: "Beige", hex: "#F5E6D3" },
+  { name: "Gold", hex: "#FFD700" },
+  { name: "Silver", hex: "#C0C0C0" },
+  { name: "Transparent", hex: "#E0E0E0" },
+] as const
 
 // Grid snap settings
 export interface GridSettings {

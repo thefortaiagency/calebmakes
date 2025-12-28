@@ -27,9 +27,10 @@ import {
   Trash2,
   Layers,
   Palette,
+  Circle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { SceneObject } from "@/lib/types/editor"
+import type { SceneObject, FilamentSlot } from "@/lib/types/editor"
 
 // Filament colors matching common AMS slot colors
 const FILAMENT_COLORS = [
@@ -125,26 +126,127 @@ function ColorPicker({ color, onColorChange }: ColorPickerProps) {
   )
 }
 
+// Filament Slot Picker component
+interface FilamentSlotPickerProps {
+  object: SceneObject
+  filamentSlots: FilamentSlot[]
+  onAssign: (slotId: number | null) => void
+}
+
+function FilamentSlotPicker({ object, filamentSlots, onAssign }: FilamentSlotPickerProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const assignedSlot = filamentSlots.find((s) => s.id === object.filamentSlotId)
+  const filledSlots = filamentSlots.filter((s) => !s.isEmpty)
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors",
+            assignedSlot
+              ? "bg-gray-800 border border-gray-700 hover:border-gray-500"
+              : "bg-gray-800/50 border border-dashed border-gray-700 hover:border-gray-500 text-gray-500"
+          )}
+          onClick={(e) => e.stopPropagation()}
+          title="Assign to filament slot"
+        >
+          {assignedSlot ? (
+            <>
+              <Circle
+                className="w-2.5 h-2.5"
+                style={{ color: assignedSlot.color, fill: assignedSlot.color }}
+              />
+              <span style={{ color: assignedSlot.color }}>S{assignedSlot.id}</span>
+            </>
+          ) : (
+            <span>AMS</span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-48 p-2 bg-gray-900 border-gray-700"
+        align="end"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-xs text-gray-400 mb-2">Assign to Filament Slot</div>
+        <div className="space-y-1">
+          {/* Unassign option */}
+          <button
+            className={cn(
+              "w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors",
+              !object.filamentSlotId
+                ? "bg-gray-800 text-white"
+                : "hover:bg-gray-800 text-gray-400"
+            )}
+            onClick={() => {
+              onAssign(null)
+              setIsOpen(false)
+            }}
+          >
+            <div className="w-4 h-4 rounded-full border border-dashed border-gray-600" />
+            <span>No assignment</span>
+          </button>
+
+          {filledSlots.length === 0 ? (
+            <div className="text-xs text-gray-500 py-2 px-2 text-center">
+              No filaments loaded in AMS
+            </div>
+          ) : (
+            filledSlots.map((slot) => (
+              <button
+                key={slot.id}
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors",
+                  object.filamentSlotId === slot.id
+                    ? "bg-gray-800 text-white"
+                    : "hover:bg-gray-800 text-gray-300"
+                )}
+                onClick={() => {
+                  onAssign(slot.id)
+                  setIsOpen(false)
+                }}
+              >
+                <div
+                  className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                  style={{ backgroundColor: slot.color }}
+                >
+                  {slot.id}
+                </div>
+                <span className="truncate">{slot.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 interface ObjectItemProps {
   object: SceneObject
   isSelected: boolean
+  filamentSlots: FilamentSlot[]
   onSelect: (addToSelection?: boolean) => void
   onToggleVisibility: () => void
   onToggleLock: () => void
   onDuplicate: () => void
   onDelete: () => void
   onColorChange: (color: string) => void
+  onAssignFilament: (slotId: number | null) => void
 }
 
 function ObjectItem({
   object,
   isSelected,
+  filamentSlots,
   onSelect,
   onToggleVisibility,
   onToggleLock,
   onDuplicate,
   onDelete,
   onColorChange,
+  onAssignFilament,
 }: ObjectItemProps) {
   const typeIcon = {
     generated: "bg-cyan-500/20 text-cyan-400",
@@ -181,6 +283,13 @@ function ObjectItem({
       >
         {object.name}
       </span>
+
+      {/* Filament slot picker */}
+      <FilamentSlotPicker
+        object={object}
+        filamentSlots={filamentSlots}
+        onAssign={onAssignFilament}
+      />
 
       {/* Color picker */}
       <ColorPicker color={object.color} onColorChange={onColorChange} />
@@ -278,6 +387,8 @@ export default function ObjectTree() {
   const removeObject = useEditorStore((state) => state.removeObject)
   const selectAll = useEditorStore((state) => state.selectAll)
   const deselectAll = useEditorStore((state) => state.deselectAll)
+  const filamentSlots = useEditorStore((state) => state.filamentSlots)
+  const assignObjectToFilamentSlot = useEditorStore((state) => state.assignObjectToFilamentSlot)
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -322,6 +433,7 @@ export default function ObjectTree() {
                 key={object.id}
                 object={object}
                 isSelected={selectedObjectIds.includes(object.id)}
+                filamentSlots={filamentSlots}
                 onSelect={(addToSelection) => selectObject(object.id, addToSelection)}
                 onToggleVisibility={() =>
                   updateObject(object.id, { visible: !object.visible })
@@ -332,6 +444,7 @@ export default function ObjectTree() {
                 onDuplicate={() => duplicateObject(object.id)}
                 onDelete={() => removeObject(object.id)}
                 onColorChange={(color) => setObjectColor(object.id, color)}
+                onAssignFilament={(slotId) => assignObjectToFilamentSlot(object.id, slotId)}
               />
             ))
           )}
