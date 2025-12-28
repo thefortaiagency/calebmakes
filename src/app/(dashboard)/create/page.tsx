@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, Suspense, useRef } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X, Upload, GitFork, PenTool } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X, Upload, GitFork, PenTool, Glasses } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -1079,6 +1079,18 @@ function CreatePageContent() {
               {showAnalysis ? <PanelRightClose className="w-4 h-4 lg:mr-2" /> : <BarChart3 className="w-4 h-4 lg:mr-2" />}
               <span className="hidden lg:inline">{showAnalysis ? "Hide Analysis" : "Analyze"}</span>
             </Button>
+            <Link href="/vr">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!geometry && editorObjects.length === 0}
+                className="bg-gray-800/80 backdrop-blur-sm"
+                title="Preview in VR"
+              >
+                <Glasses className="w-4 h-4 lg:mr-2" />
+                <span className="hidden lg:inline">VR Preview</span>
+              </Button>
+            </Link>
           </div>
 
           {/* Compiling Indicator */}

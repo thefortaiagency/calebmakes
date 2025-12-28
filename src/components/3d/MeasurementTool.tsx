@@ -187,10 +187,10 @@ function MeasurementClickHandler() {
     raycaster.setFromCamera(mouse, camera)
 
     // Find all meshes to test against
-    const meshes: THREE.Object3D[] = []
+    const meshes: THREE.Mesh[] = []
     scene.traverse((object) => {
       if (object instanceof THREE.Mesh && object.geometry) {
-        meshes.push(object)
+        meshes.push(object as THREE.Mesh)
       }
     })
 
