@@ -51,19 +51,20 @@ export async function POST(request: Request) {
     // Use imageUrl if provided, otherwise use base64 data URI
     const imageInput = imageUrl || imageBase64
 
-    console.log("Starting image-to-3D conversion...")
+    console.log("Starting image-to-3D conversion with TRELLIS...")
 
-    // Run Hunyuan3D-2 model on Replicate with retry for rate limits
+    // Run TRELLIS model on Replicate - outputs TEXTURED GLB files
     const output = await runWithRetry(() =>
       replicate.run(
-        "tencent/hunyuan3d-2:b1b9449a1277e10402781c5d41eb30c0a0683504fb23fab591ca9dfc2aabe1cb",
+        "firtoz/trellis",
         {
           input: {
-            image: imageInput,
-            steps: 30, // Balance between speed and quality
-            guidance_scale: 5.5,
-            octree_resolution: 256, // 256, 384, or 512 - higher = more detail
-            remove_background: true,
+            images: [imageInput],
+            texture_size: 1024, // High quality textures
+            mesh_simplify: 0.95,
+            generate_model: true, // Generate GLB file
+            ss_sampling_steps: 12,
+            slat_sampling_steps: 12,
           },
         }
       )
@@ -72,17 +73,6 @@ export async function POST(request: Request) {
     console.log("3D model generated - type:", typeof output)
     console.log("3D model generated - isArray:", Array.isArray(output))
     console.log("3D model generated - keys:", output && typeof output === "object" ? Object.keys(output) : "N/A")
-    console.log("3D model generated - toString:", String(output))
-
-    // Debug mesh property specifically
-    if (output && typeof output === "object" && "mesh" in output) {
-      const mesh = (output as { mesh: unknown }).mesh
-      console.log("Mesh type:", typeof mesh)
-      console.log("Mesh constructor:", mesh?.constructor?.name)
-      console.log("Mesh has url():", typeof (mesh as { url?: unknown })?.url === "function")
-      console.log("Mesh keys:", mesh && typeof mesh === "object" ? Object.keys(mesh) : "N/A")
-      console.log("Mesh prototype methods:", mesh ? Object.getOwnPropertyNames(Object.getPrototypeOf(mesh)) : "N/A")
-    }
 
     // Handle different output formats from Replicate
     let modelUrl: string | null = null
@@ -129,14 +119,17 @@ export async function POST(request: Request) {
 
     if (typeof output === "string") {
       modelUrl = output
-    } else if (Array.isArray(output) && output.length > 0) {
-      // Array of FileOutputs - try first element
-      modelUrl = extractUrl(output[0])
     } else if (output && typeof output === "object") {
       const obj = output as Record<string, unknown>
 
-      // Try common property names - Hunyuan3D returns { mesh: FileOutput }
-      if (obj.mesh) {
+      // TRELLIS outputs: { model: FileOutput, ... }
+      // Try model first (TRELLIS GLB output)
+      if (obj.model) {
+        modelUrl = extractUrl(obj.model)
+        console.log("Found model URL from 'model' property:", modelUrl)
+      }
+      // Fallback to other common property names
+      else if (obj.mesh) {
         modelUrl = extractUrl(obj.mesh)
       } else if (obj.output) {
         modelUrl = extractUrl(obj.output)
@@ -152,6 +145,7 @@ export async function POST(request: Request) {
 
     if (!modelUrl || modelUrl === "[object Object]") {
       console.error("Could not extract model URL from output")
+      console.error("Full output:", JSON.stringify(output, null, 2))
       return Response.json(
         { error: "Failed to get model URL from generation" },
         { status: 500 }
