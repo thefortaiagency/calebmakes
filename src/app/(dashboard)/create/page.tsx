@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, Maximize2, Minimize2, RotateCcw } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, Maximize2, Minimize2, RotateCcw, Library } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +16,7 @@ import ObjectTree from "@/components/editor/ObjectTree"
 import TransformToolbar from "@/components/editor/TransformToolbar"
 import BooleanToolbar from "@/components/editor/BooleanToolbar"
 import PrintAnalysisDashboard from "@/components/analysis/PrintAnalysisDashboard"
-import TemplateBrowser from "@/components/editor/TemplateBrowser"
+import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
 import type { User } from "@supabase/supabase-js"
@@ -404,9 +404,21 @@ export default function CreatePage() {
               </div>
             )}
 
-            {/* P1S Template Browser */}
+            {/* Browse Library */}
             <div className="mt-3 pt-3 border-t border-gray-700">
-              <TemplateBrowser />
+              <Link href="/library">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10"
+                >
+                  <Library className="w-4 h-4 mr-2" />
+                  Browse Template Library
+                </Button>
+              </Link>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                60+ ready-to-print templates
+              </p>
             </div>
           </div>
 
