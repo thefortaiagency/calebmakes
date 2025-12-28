@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, Suspense, useRef } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X, Upload, GitFork } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X, Upload, GitFork, PenTool } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,12 +13,16 @@ import { useEditorStore } from "@/lib/stores/editor-store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import { downloadSTL } from "@/lib/jscad/stl-export"
 import { parseSTL, validateSTLFile, calculateBounds } from "@/lib/jscad/stl-import"
+import { parseOpenSCADFile, validateOpenSCADFile, type ParsedOpenSCAD } from "@/lib/openscad"
 import ParameterControls from "@/components/editor/ParameterControls"
+import OpenSCADImport from "@/components/editor/OpenSCADImport"
 import HelpDialog from "@/components/editor/HelpDialog"
 import ObjectTree from "@/components/editor/ObjectTree"
 import TransformToolbar from "@/components/editor/TransformToolbar"
 import BooleanToolbar from "@/components/editor/BooleanToolbar"
 import PrintAnalysisDashboard from "@/components/analysis/PrintAnalysisDashboard"
+import ImageToSurface from "@/components/editor/ImageToSurface"
+import PolygonDrawer from "@/components/editor/PolygonDrawer"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
@@ -100,6 +104,8 @@ function CreatePageContent() {
   const [urlParamsLoaded, setUrlParamsLoaded] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [isForking, setIsForking] = useState(false)
+  const [parsedOpenSCAD, setParsedOpenSCAD] = useState<ParsedOpenSCAD | null>(null)
+  const [showPolygonDrawer, setShowPolygonDrawer] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -231,6 +237,7 @@ function CreatePageContent() {
     setCurrentTemplateId(null)
     setShowShareModal(false)
     setShareableUrl("")
+    setParsedOpenSCAD(null)
     // Update URL to remove query params without reload
     window.history.replaceState({}, "", "/create")
   }, [setCode, setGeometry, setParameters, setError])
@@ -253,6 +260,35 @@ function CreatePageContent() {
     // Clear the legacy geometry so it doesn't show duplicated
     setGeometry(null)
   }, [geometry, response, code, parameterValues, parameters, modelColor, importGeometryAsObject, setGeometry, editorObjects.length])
+
+  // Handle image to surface generation
+  const handleImageToSurface = useCallback((generatedGeometry: NonNullable<typeof geometry>, name: string) => {
+    // Set the geometry for display
+    setGeometry(generatedGeometry)
+    setModelName(name)
+    setCode("")
+    setParameters([])
+
+    // Switch to viewer on mobile
+    setMobileShowViewer(true)
+  }, [setGeometry, setCode, setParameters])
+
+  // Handle polygon drawing completion
+  const handlePolygonGeometry = useCallback((generatedGeometry: NonNullable<typeof geometry>, name: string) => {
+    // Set the geometry for display
+    setGeometry(generatedGeometry)
+    setModelName(name)
+    setCode("")
+    setParameters([])
+    setShowPolygonDrawer(false)
+
+    // Switch to viewer on mobile
+    setMobileShowViewer(true)
+
+    toast.success("Custom shape created!", {
+      description: `${name} is ready for preview and export.`,
+    })
+  }, [setGeometry, setCode, setParameters])
 
   // Compile code when it changes or parameters change
   const compileModel = useCallback(async () => {
@@ -509,59 +545,117 @@ function CreatePageContent() {
     }
   }
 
-  // Handle STL file upload
+  // Handle STL or OpenSCAD file upload
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
-    // Validate file
-    const validation = validateSTLFile(file)
-    if (!validation.valid) {
-      toast.error("Invalid file", { description: validation.error })
-      return
-    }
+    const isOpenSCAD = file.name.toLowerCase().endsWith(".scad")
 
-    setIsUploading(true)
-    setError(null)
+    if (isOpenSCAD) {
+      // Handle OpenSCAD file
+      const validation = validateOpenSCADFile(file)
+      if (!validation.valid) {
+        toast.error("Invalid file", { description: validation.error })
+        return
+      }
 
-    try {
-      // Parse the STL file
-      const geometry = await parseSTL(file)
+      setIsUploading(true)
+      setError(null)
 
-      // Calculate bounds for display info
-      const bounds = calculateBounds(geometry)
+      try {
+        const parsed = await parseOpenSCADFile(file)
 
-      // Extract name from filename
-      const fileName = file.name.replace(/\.stl$/i, "")
-      setModelName(fileName)
+        // Extract name from filename
+        const fileName = file.name.replace(/\.scad$/i, "")
+        setModelName(fileName)
 
-      // Set the geometry in the model store
-      setGeometry(geometry)
+        // Set the parsed OpenSCAD data
+        setParsedOpenSCAD(parsed)
 
-      // Clear any existing code/parameters since this is an imported model
-      setCode("")
-      setParameters([])
+        // Clear existing geometry since we can't render OpenSCAD
+        setGeometry(null)
+        setCode("")
+        setParameters([])
 
-      // Show success message with dimensions
-      toast.success("STL imported successfully!", {
-        description: `${fileName} (${bounds.size[0].toFixed(1)} x ${bounds.size[1].toFixed(1)} x ${bounds.size[2].toFixed(1)} mm)`,
-      })
+        // Show success message
+        const paramCount = parsed.parameters.filter((p) => !p.isHidden).length
+        toast.success("OpenSCAD file imported!", {
+          description: `Found ${paramCount} customizable parameter${paramCount !== 1 ? "s" : ""}`,
+        })
+      } catch (err) {
+        console.error("OpenSCAD import error:", err)
+        toast.error("Import failed", {
+          description: err instanceof Error ? err.message : "Failed to parse OpenSCAD file",
+        })
+      } finally {
+        setIsUploading(false)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""
+        }
+      }
+    } else {
+      // Handle STL file
+      const validation = validateSTLFile(file)
+      if (!validation.valid) {
+        toast.error("Invalid file", { description: validation.error })
+        return
+      }
 
-      // Switch to viewer on mobile
-      setMobileShowViewer(true)
-    } catch (err) {
-      console.error("STL import error:", err)
-      toast.error("Import failed", {
-        description: err instanceof Error ? err.message : "Failed to parse STL file",
-      })
-    } finally {
-      setIsUploading(false)
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
+      setIsUploading(true)
+      setError(null)
+
+      try {
+        // Parse the STL file
+        const geometry = await parseSTL(file)
+
+        // Calculate bounds for display info
+        const bounds = calculateBounds(geometry)
+
+        // Extract name from filename
+        const fileName = file.name.replace(/\.stl$/i, "")
+        setModelName(fileName)
+
+        // Set the geometry in the model store
+        setGeometry(geometry)
+
+        // Clear any existing code/parameters since this is an imported model
+        setCode("")
+        setParameters([])
+        setParsedOpenSCAD(null)
+
+        // Show success message with dimensions
+        toast.success("STL imported successfully!", {
+          description: `${fileName} (${bounds.size[0].toFixed(1)} x ${bounds.size[1].toFixed(1)} x ${bounds.size[2].toFixed(1)} mm)`,
+        })
+
+        // Switch to viewer on mobile
+        setMobileShowViewer(true)
+      } catch (err) {
+        console.error("STL import error:", err)
+        toast.error("Import failed", {
+          description: err instanceof Error ? err.message : "Failed to parse STL file",
+        })
+      } finally {
+        setIsUploading(false)
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""
+        }
       }
     }
   }
+
+  // Handle generating AI model from OpenSCAD parameters
+  const handleOpenSCADGenerateWithAI = useCallback((aiPrompt: string) => {
+    setPrompt(aiPrompt)
+    setParsedOpenSCAD(null)
+    // Trigger generation
+    setTimeout(() => {
+      const generateBtn = document.querySelector('[data-generate-button]') as HTMLButtonElement
+      if (generateBtn) generateBtn.click()
+    }, 100)
+  }, [])
 
   // Fork model to My Models
   const handleFork = async () => {
@@ -719,6 +813,7 @@ function CreatePageContent() {
               className="min-h-[80px] bg-gray-800 border-gray-700 resize-none text-sm"
             />
             <Button
+              data-generate-button
               onClick={() => handleGenerate()}
               disabled={isGenerating || !prompt.trim()}
               className="w-full mt-3 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700"
@@ -777,12 +872,12 @@ function CreatePageContent() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".stl"
+                accept=".stl,.scad"
                 className="hidden"
                 onChange={handleFileUpload}
               />
 
-              {/* Upload STL Button */}
+              {/* Upload STL/SCAD Button */}
               <Button
                 variant="outline"
                 size="sm"
@@ -795,12 +890,32 @@ function CreatePageContent() {
                 ) : (
                   <Upload className="w-4 h-4 mr-2" />
                 )}
-                {isUploading ? "Importing..." : "Upload STL File"}
+                {isUploading ? "Importing..." : "Upload STL / OpenSCAD"}
               </Button>
 
               <p className="text-xs text-gray-500 text-center">
-                Import from Thingiverse, Printables, etc.
+                Import .stl or .scad files from Thingiverse, etc.
               </p>
+
+              {/* Draw Custom Shape Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-green-500/50 text-green-400 hover:bg-green-500/10"
+                onClick={() => setShowPolygonDrawer(true)}
+              >
+                <PenTool className="w-4 h-4 mr-2" />
+                Draw Custom Shape
+              </Button>
+
+              <p className="text-xs text-gray-500 text-center">
+                Create cookie cutters, logos, custom outlines
+              </p>
+            </div>
+
+            {/* Image to Surface / Lithophane */}
+            <div className="p-4 border-b border-gray-800">
+              <ImageToSurface onSurfaceGenerated={handleImageToSurface} />
             </div>
           </div>
 
@@ -825,9 +940,17 @@ function CreatePageContent() {
             </div>
           )}
 
-          {/* Parameters */}
+          {/* Parameters or OpenSCAD Import */}
           <div className="flex-1 overflow-auto min-h-0">
-            <ParameterControls />
+            {parsedOpenSCAD ? (
+              <OpenSCADImport
+                parsed={parsedOpenSCAD}
+                onGenerateWithAI={handleOpenSCADGenerateWithAI}
+                isGenerating={isGenerating}
+              />
+            ) : (
+              <ParameterControls />
+            )}
           </div>
 
           {/* Scene Objects Panel */}
@@ -1130,6 +1253,35 @@ function CreatePageContent() {
                 <Copy className="w-4 h-4 mr-2" />
                 Copy Link
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Polygon Drawer Modal */}
+      {showPolygonDrawer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-5xl mx-4 h-[85vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <PenTool className="w-5 h-5 text-green-400" />
+                <h2 className="text-lg font-semibold text-gray-200">Draw Custom Shape</h2>
+              </div>
+              <button
+                onClick={() => setShowPolygonDrawer(false)}
+                className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Polygon Drawer Content */}
+            <div className="flex-1 overflow-hidden">
+              <PolygonDrawer
+                onGeometryCreated={handlePolygonGeometry}
+                onCancel={() => setShowPolygonDrawer(false)}
+              />
             </div>
           </div>
         </div>
