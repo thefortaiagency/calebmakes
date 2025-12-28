@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Library, Search, Filter, Star, Sparkles, ArrowUpDown, LayoutGrid, List, Clock, Gauge, Loader2 } from "lucide-react"
+import dynamic from "next/dynamic"
+import { Library, Search, Filter, Star, Sparkles, ArrowUpDown, LayoutGrid, List, Clock, Gauge, Loader2, Camera } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,9 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { TEMPLATES, CATEGORIES } from "@/lib/templates"
+import { TEMPLATES, CATEGORIES, type Template } from "@/lib/templates"
 import { useModelStore } from "@/lib/store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
+import type { GeometryData } from "@/lib/types"
+
+const ThumbnailCaptureModal = dynamic(
+  () => import("@/components/3d/ThumbnailCaptureModal"),
+  { ssr: false }
+)
 
 type SortOption = "name" | "difficulty" | "printTime" | "category"
 type ViewMode = "grid" | "list"
@@ -43,6 +50,9 @@ export default function LibraryPage() {
   const [sortBy, setSortBy] = useState<SortOption>("name")
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [loading, setLoading] = useState<string | null>(null)
+  const [capturingTemplate, setCapturingTemplate] = useState<Template | null>(null)
+  const [captureGeometry, setCaptureGeometry] = useState<GeometryData | null>(null)
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({})
   const router = useRouter()
 
   const {
@@ -123,6 +133,67 @@ export default function LibraryPage() {
       setLoading(null)
     }
   }
+
+  // Handle starting thumbnail capture
+  const handleCaptureThumbnail = useCallback(async (template: Template) => {
+    setLoading(template.id)
+    setError(null)
+
+    try {
+      // Compile the model to get geometry
+      const defaultParams = template.parameters.reduce(
+        (acc, p) => ({ ...acc, [p.name]: p.default }),
+        {}
+      )
+      const geom = await compileJSCAD(template.code, defaultParams)
+      setCaptureGeometry(geom)
+      setCapturingTemplate(template)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to compile model")
+    } finally {
+      setLoading(null)
+    }
+  }, [setError])
+
+  // Handle thumbnail captured and upload
+  const handleThumbnailCaptured = useCallback(async (imageData: string) => {
+    if (!capturingTemplate) return
+
+    try {
+      // Convert base64 to blob
+      const base64Data = imageData.replace(/^data:image\/png;base64,/, "")
+      const byteCharacters = atob(base64Data)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: "image/png" })
+
+      // Upload via API endpoint
+      const formData = new FormData()
+      formData.append("file", blob, `${capturingTemplate.id}.png`)
+      formData.append("templateId", capturingTemplate.id)
+
+      const response = await fetch("/api/thumbnails/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Upload failed")
+      }
+
+      const { url } = await response.json()
+
+      // Update local state to show new thumbnail
+      setThumbnailUrls(prev => ({ ...prev, [capturingTemplate.id]: url }))
+    } catch (err) {
+      console.error("Failed to save thumbnail:", err)
+      setError(err instanceof Error ? err.message : "Failed to save thumbnail")
+    }
+  }, [capturingTemplate, setError])
 
   const featuredTemplates = filteredTemplates.filter((t) => t.featured)
   const otherTemplates = filteredTemplates.filter((t) => !t.featured)
@@ -240,6 +311,8 @@ export default function LibraryPage() {
                   loading={loading === template.id}
                   featured
                   onCustomize={handleCustomize}
+                  onCapture={handleCaptureThumbnail}
+                  thumbnailUrl={thumbnailUrls[template.id]}
                 />
               ))}
             </div>
@@ -260,6 +333,8 @@ export default function LibraryPage() {
                   template={template}
                   loading={loading === template.id}
                   onCustomize={handleCustomize}
+                  onCapture={handleCaptureThumbnail}
+                  thumbnailUrl={thumbnailUrls[template.id]}
                 />
               ))}
             </div>
@@ -285,6 +360,20 @@ export default function LibraryPage() {
           </div>
         )}
       </div>
+
+      {/* Thumbnail Capture Modal */}
+      {capturingTemplate && captureGeometry && (
+        <ThumbnailCaptureModal
+          isOpen={!!capturingTemplate}
+          onClose={() => {
+            setCapturingTemplate(null)
+            setCaptureGeometry(null)
+          }}
+          geometry={captureGeometry}
+          onCapture={handleThumbnailCaptured}
+          title={`Capture Thumbnail for ${capturingTemplate.name}`}
+        />
+      )}
     </div>
   )
 }
@@ -294,10 +383,15 @@ interface TemplateCardProps {
   loading: boolean
   featured?: boolean
   onCustomize: (id: string) => void
+  onCapture?: (template: Template) => void
+  thumbnailUrl?: string
 }
 
-function TemplateCard({ template, loading, featured, onCustomize }: TemplateCardProps) {
+function TemplateCard({ template, loading, featured, onCustomize, onCapture, thumbnailUrl }: TemplateCardProps) {
   const [imageError, setImageError] = useState(false)
+
+  // Use custom thumbnail URL if available, otherwise fall back to static
+  const imgSrc = thumbnailUrl || `/templates/${template.id}.png`
 
   return (
     <Card
@@ -326,11 +420,24 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
             </div>
           ) : (
             <img
-              src={`/templates/${template.id}.png`}
+              src={imgSrc}
               alt={template.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               onError={() => setImageError(true)}
             />
+          )}
+          {/* Camera button for thumbnail capture */}
+          {onCapture && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onCapture(template)
+              }}
+              className="absolute top-2 left-2 z-10 p-1.5 rounded-lg bg-gray-900/80 text-gray-400 hover:text-cyan-400 hover:bg-gray-800 opacity-0 group-hover:opacity-100 transition-all"
+              title="Capture thumbnail"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
           )}
           {featured && (
             <div className="absolute top-2 right-2 z-10">
