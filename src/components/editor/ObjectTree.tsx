@@ -1,6 +1,6 @@
 "use client"
 
-import { useEditorStore } from "@/lib/stores/editor-store"
+import { useEditorStore, useSelectedObjectIds } from "@/lib/stores/editor-store"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import {
@@ -172,7 +172,7 @@ function ObjectItem({
 
 export default function ObjectTree() {
   const objects = useEditorStore((state) => state.objects)
-  const selectedObjectIds = useEditorStore((state) => state.selectedObjectIds)
+  const selectedObjectIds = useSelectedObjectIds()
   const selectObject = useEditorStore((state) => state.selectObject)
   const updateObject = useEditorStore((state) => state.updateObject)
   const duplicateObject = useEditorStore((state) => state.duplicateObject)

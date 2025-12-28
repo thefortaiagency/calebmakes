@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { subscribeWithSelector } from "zustand/middleware"
+import { useShallow } from "zustand/react/shallow"
 import { nanoid } from "nanoid"
 import type { GeometryData, Parameter } from "../types"
 import type {
@@ -629,9 +630,12 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 )
 
 // Selector hooks for common patterns
+// Using useShallow to prevent unnecessary re-renders when array contents are the same
 export const useSelectedObjects = () =>
-  useEditorStore((state) =>
-    state.objects.filter((obj) => state.selectedObjectIds.includes(obj.id))
+  useEditorStore(
+    useShallow((state) =>
+      state.objects.filter((obj) => state.selectedObjectIds.includes(obj.id))
+    )
   )
 
 export const useFirstSelectedObject = () =>
@@ -643,3 +647,7 @@ export const useFirstSelectedObject = () =>
 export const useCanUndo = () => useEditorStore((state) => state.historyIndex > 0)
 export const useCanRedo = () =>
   useEditorStore((state) => state.historyIndex < state.history.length - 1)
+
+// Stable selector for selectedObjectIds array (prevents re-renders when array content is same)
+export const useSelectedObjectIds = () =>
+  useEditorStore(useShallow((state) => state.selectedObjectIds))

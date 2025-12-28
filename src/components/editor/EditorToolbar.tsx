@@ -1,6 +1,6 @@
 "use client"
 
-import { useEditorStore, useCanUndo, useCanRedo } from "@/lib/stores/editor-store"
+import { useEditorStore, useCanUndo, useCanRedo, useSelectedObjectIds } from "@/lib/stores/editor-store"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -78,7 +78,7 @@ export default function EditorToolbar() {
   const canRedo = useCanRedo()
   const undo = useEditorStore((state) => state.undo)
   const redo = useEditorStore((state) => state.redo)
-  const selectedObjectIds = useEditorStore((state) => state.selectedObjectIds)
+  const selectedObjectIds = useSelectedObjectIds()
   const removeSelectedObjects = useEditorStore((state) => state.removeSelectedObjects)
   const duplicateObject = useEditorStore((state) => state.duplicateObject)
   const preferences = useEditorStore((state) => state.preferences)

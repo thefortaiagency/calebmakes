@@ -1,19 +1,23 @@
 "use client"
 
-import { useEffect, useCallback } from "react"
-import { useEditorStore } from "@/lib/stores/editor-store"
+import { useEffect, useCallback, useRef } from "react"
+import { useEditorStore, useSelectedObjectIds, useCanUndo, useCanRedo } from "@/lib/stores/editor-store"
 
 export function useEditorKeyboardShortcuts() {
   const undo = useEditorStore((state) => state.undo)
   const redo = useEditorStore((state) => state.redo)
-  const canUndo = useEditorStore((state) => state.historyIndex > 0)
-  const canRedo = useEditorStore((state) => state.historyIndex < state.history.length - 1)
+  const canUndo = useCanUndo()
+  const canRedo = useCanRedo()
   const removeSelectedObjects = useEditorStore((state) => state.removeSelectedObjects)
-  const selectedObjectIds = useEditorStore((state) => state.selectedObjectIds)
+  const selectedObjectIds = useSelectedObjectIds()
   const selectAll = useEditorStore((state) => state.selectAll)
   const deselectAll = useEditorStore((state) => state.deselectAll)
   const duplicateObject = useEditorStore((state) => state.duplicateObject)
   const setActiveTool = useEditorStore((state) => state.setActiveTool)
+
+  // Use refs to avoid recreating the callback on every state change
+  const stateRef = useRef({ canUndo, canRedo, selectedObjectIds })
+  stateRef.current = { canUndo, canRedo, selectedObjectIds }
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -29,22 +33,25 @@ export function useEditorKeyboardShortcuts() {
       const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0
       const modKey = isMac ? e.metaKey : e.ctrlKey
 
+      // Get current state from ref to avoid stale closures
+      const { canUndo: canUndoNow, canRedo: canRedoNow, selectedObjectIds: selectedIds } = stateRef.current
+
       // Undo: Ctrl+Z / Cmd+Z
       if (modKey && e.key === "z" && !e.shiftKey) {
         e.preventDefault()
-        if (canUndo) undo()
+        if (canUndoNow) undo()
         return
       }
 
       // Redo: Ctrl+Shift+Z / Cmd+Shift+Z or Ctrl+Y / Cmd+Y
       if ((modKey && e.shiftKey && e.key === "z") || (modKey && e.key === "y")) {
         e.preventDefault()
-        if (canRedo) redo()
+        if (canRedoNow) redo()
         return
       }
 
       // Delete: Delete or Backspace
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedObjectIds.length > 0) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.length > 0) {
         e.preventDefault()
         removeSelectedObjects()
         return
@@ -65,9 +72,9 @@ export function useEditorKeyboardShortcuts() {
       }
 
       // Duplicate: Ctrl+D / Cmd+D
-      if (modKey && e.key === "d" && selectedObjectIds.length === 1) {
+      if (modKey && e.key === "d" && selectedIds.length === 1) {
         e.preventDefault()
-        duplicateObject(selectedObjectIds[0])
+        duplicateObject(selectedIds[0])
         return
       }
 
@@ -101,13 +108,11 @@ export function useEditorKeyboardShortcuts() {
         }
       }
     },
+    // Only include stable function references - state values are accessed via ref
     [
       undo,
       redo,
-      canUndo,
-      canRedo,
       removeSelectedObjects,
-      selectedObjectIds,
       selectAll,
       deselectAll,
       duplicateObject,
