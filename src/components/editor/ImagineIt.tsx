@@ -8,7 +8,7 @@ import { loadGLBFromUrl, scaleGeometryToFit } from "@/lib/loaders/glb-loader"
 import type { GeometryData } from "@/lib/types"
 
 interface ImagineItProps {
-  onModelGenerated: (geometry: GeometryData, name: string) => void
+  onModelGenerated: (geometry: GeometryData, name: string, glbUrl?: string) => void
 }
 
 type Step = "prompt" | "generating-image" | "preview-image" | "generating-3d" | "complete"
@@ -124,7 +124,8 @@ export default function ImagineIt({ onModelGenerated }: ImagineItProps) {
         : "Imagined Model"
 
       setStep("complete")
-      onModelGenerated(scaledGeometry, modelName)
+      // Pass the GLB URL for textured viewing
+      onModelGenerated(scaledGeometry, modelName, data.modelUrl)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to convert to 3D")
       setStep("preview-image")

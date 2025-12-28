@@ -3,12 +3,12 @@
 import { useState, useCallback, useEffect, Suspense, useRef } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X, Upload, GitFork, PenTool, Glasses, Palette } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X, Upload, GitFork, PenTool, Glasses, Palette, Camera, Printer } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { useModelStore } from "@/lib/store"
+import { useModelStore, type ViewMode } from "@/lib/store"
 import { useEditorStore } from "@/lib/stores/editor-store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import { downloadSTL } from "@/lib/jscad/stl-export"
@@ -38,12 +38,21 @@ import type { JSCADResponse } from "@/lib/types"
 import type { User } from "@supabase/supabase-js"
 import { TEMPLATES } from "@/lib/templates"
 
-// Dynamic import for 3D viewer (no SSR)
+// Dynamic import for 3D viewers (no SSR)
 const ModelViewer = dynamic(() => import("@/components/3d/ModelViewer"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full flex items-center justify-center bg-gray-900">
       <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+    </div>
+  ),
+})
+
+const TexturedModelViewer = dynamic(() => import("@/components/3d/TexturedModelViewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-gray-900">
+      <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
     </div>
   ),
 })
@@ -146,6 +155,10 @@ function CreatePageContent() {
     error,
     setError,
     modelColor,
+    glbUrl,
+    setGlbUrl,
+    viewMode,
+    setViewMode,
   } = useModelStore()
 
   // Editor store for multi-object scene
@@ -263,9 +276,11 @@ function CreatePageContent() {
     setShareableUrl("")
     setParsedOpenSCAD(null)
     setEditModelId(null)
+    setGlbUrl(null)
+    setViewMode("print")
     // Update URL to remove query params without reload
     window.history.replaceState({}, "", "/create")
-  }, [setCode, setGeometry, setParameters, setError])
+  }, [setCode, setGeometry, setParameters, setError, setGlbUrl, setViewMode])
 
   // Add generated model to scene as an editable object
   const handleAddToScene = useCallback(() => {
@@ -304,20 +319,26 @@ function CreatePageContent() {
   }, [setGeometry, setCode, setParameters])
 
   // Handle "Imagine It" 3D model generation
-  const handleImagineModel = useCallback((generatedGeometry: NonNullable<typeof geometry>, name: string) => {
+  const handleImagineModel = useCallback((generatedGeometry: NonNullable<typeof geometry>, name: string, modelGlbUrl?: string) => {
     // Set the geometry for display
     setGeometry(generatedGeometry)
     setModelName(name)
     setCode("")
     setParameters([])
 
+    // If we have a GLB URL, store it and switch to photo mode
+    if (modelGlbUrl) {
+      setGlbUrl(modelGlbUrl)
+      setViewMode("photo") // Default to photo mode for image-to-3D
+    }
+
     // Switch to viewer on mobile
     setMobileShowViewer(true)
 
     toast.success("3D model created!", {
-      description: `${name} is ready for preview and export.`,
+      description: `${name} is ready for preview. Try Photo Mode to see textures!`,
     })
-  }, [setGeometry, setCode, setParameters])
+  }, [setGeometry, setCode, setParameters, setGlbUrl, setViewMode])
 
   // Handle polygon drawing completion
   const handlePolygonGeometry = useCallback((generatedGeometry: NonNullable<typeof geometry>, name: string) => {
@@ -1310,7 +1331,42 @@ function CreatePageContent() {
 
           {/* 3D Viewer */}
           <div className="flex-1 relative">
-            <ModelViewer />
+            {/* View Mode Toggle - only show when GLB URL exists */}
+            {glbUrl && (
+              <div className="absolute top-14 lg:top-16 right-4 z-10 flex items-center bg-gray-800/90 backdrop-blur-sm rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode("print")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === "print"
+                      ? "bg-cyan-600 text-white"
+                      : "text-gray-400 hover:text-white hover:bg-gray-700"
+                  }`}
+                  title="Print View - Solid color for 3D printing"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Print</span>
+                </button>
+                <button
+                  onClick={() => setViewMode("photo")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === "photo"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-400 hover:text-white hover:bg-gray-700"
+                  }`}
+                  title="Photo View - Original colors and textures"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Photo</span>
+                </button>
+              </div>
+            )}
+
+            {/* Render appropriate viewer based on mode */}
+            {viewMode === "photo" && glbUrl ? (
+              <TexturedModelViewer glbUrl={glbUrl} />
+            ) : (
+              <ModelViewer />
+            )}
 
             {/* Transform Toolbar - shows when objects exist */}
             {editorObjects.length > 0 && (

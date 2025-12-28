@@ -21,6 +21,9 @@ export const FILAMENT_COLORS = [
   { name: "Glow Green", hex: "#39ff14" },
 ]
 
+// View modes for the 3D viewer
+export type ViewMode = "print" | "photo"
+
 interface ModelState {
   // Current model state
   code: string
@@ -29,6 +32,10 @@ interface ModelState {
   parameterValues: Record<string, number | boolean | string>
   geometry: GeometryData | null
   modelColor: string
+
+  // Textured model support (for photo-to-3D)
+  glbUrl: string | null  // Original GLB URL with textures
+  viewMode: ViewMode     // "print" = solid color, "photo" = textured
 
   // UI state
   isGenerating: boolean
@@ -42,6 +49,8 @@ interface ModelState {
   setParameterValue: (name: string, value: number | boolean | string) => void
   setGeometry: (geometry: GeometryData | null) => void
   setModelColor: (color: string) => void
+  setGlbUrl: (url: string | null) => void
+  setViewMode: (mode: ViewMode) => void
   setIsGenerating: (isGenerating: boolean) => void
   setIsCompiling: (isCompiling: boolean) => void
   setError: (error: string | null) => void
@@ -55,6 +64,8 @@ const initialState = {
   parameterValues: {},
   geometry: null,
   modelColor: "#00d4ff",
+  glbUrl: null,
+  viewMode: "print" as ViewMode,
   isGenerating: false,
   isCompiling: false,
   error: null,
@@ -82,6 +93,8 @@ export const useModelStore = create<ModelState>((set) => ({
 
   setGeometry: (geometry) => set({ geometry }),
   setModelColor: (modelColor) => set({ modelColor }),
+  setGlbUrl: (glbUrl) => set({ glbUrl }),
+  setViewMode: (viewMode) => set({ viewMode }),
   setIsGenerating: (isGenerating) => set({ isGenerating }),
   setIsCompiling: (isCompiling) => set({ isCompiling }),
   setError: (error) => set({ error }),
