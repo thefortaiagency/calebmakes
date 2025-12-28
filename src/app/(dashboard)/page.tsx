@@ -78,7 +78,7 @@ export default function HomePage() {
 
             {/* Tagline */}
             <p className="text-2xl md:text-3xl text-gray-600 font-light mb-8">
-              Where Ideas Become Reality
+              Where Ideas Become Reality v2
             </p>
 
             {/* Passion Statement Card */}
