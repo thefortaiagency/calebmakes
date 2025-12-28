@@ -24,6 +24,7 @@ export const FILAMENT_COLORS = [
 interface ModelState {
   // Current model state
   code: string
+  modelName: string
   parameters: Parameter[]
   parameterValues: Record<string, number | boolean | string>
   geometry: GeometryData | null
@@ -36,6 +37,7 @@ interface ModelState {
 
   // Actions
   setCode: (code: string) => void
+  setModelName: (name: string) => void
   setParameters: (parameters: Parameter[]) => void
   setParameterValue: (name: string, value: number | boolean | string) => void
   setGeometry: (geometry: GeometryData | null) => void
@@ -48,6 +50,7 @@ interface ModelState {
 
 const initialState = {
   code: "",
+  modelName: "Untitled Model",
   parameters: [],
   parameterValues: {},
   geometry: null,
@@ -61,6 +64,7 @@ export const useModelStore = create<ModelState>((set) => ({
   ...initialState,
 
   setCode: (code) => set({ code }),
+  setModelName: (modelName) => set({ modelName }),
 
   setParameters: (parameters) => {
     // Initialize parameter values with defaults

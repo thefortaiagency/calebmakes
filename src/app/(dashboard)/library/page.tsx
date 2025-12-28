@@ -59,6 +59,7 @@ export default function LibraryPage() {
 
   const {
     setCode,
+    setModelName,
     setParameters,
     setGeometry,
     setError,
@@ -131,8 +132,9 @@ export default function LibraryPage() {
     setError(null)
 
     try {
-      // Set the code and parameters in the store
+      // Set the code, name, and parameters in the store
       setCode(template.code)
+      setModelName(template.name)
       setParameters(template.parameters)
 
       // Pre-compile the model

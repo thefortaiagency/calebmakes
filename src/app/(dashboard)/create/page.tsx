@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, Maximize2, Minimize2, RotateCcw, Library } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, Maximize2, Minimize2, RotateCcw, Library, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -73,6 +73,8 @@ export default function CreatePage() {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [analysisWidth, setAnalysisWidth] = useState<"normal" | "wide" | "full">("normal")
   const [showLeftPanel, setShowLeftPanel] = useState(true)
+  const [modelName, setModelName] = useState("Untitled Model")
+  const [isEditingName, setIsEditingName] = useState(false)
   const supabase = createClient()
 
   // Get user on mount
@@ -87,6 +89,8 @@ export default function CreatePage() {
   const {
     code,
     setCode,
+    modelName: storeModelName,
+    setModelName: setStoreModelName,
     setParameters,
     parameterValues,
     geometry,
@@ -107,6 +111,13 @@ export default function CreatePage() {
   // Get parameters from model store
   const parameters = useModelStore((state) => state.parameters)
 
+  // Sync local model name with store (for when template is loaded from library)
+  useEffect(() => {
+    if (storeModelName && storeModelName !== "Untitled Model") {
+      setModelName(storeModelName)
+    }
+  }, [storeModelName])
+
   // Reset everything to start fresh
   const handleReset = useCallback(() => {
     setPrompt("")
@@ -117,6 +128,8 @@ export default function CreatePage() {
     setError(null)
     setSaveSuccess(false)
     setShowIdeas(false)
+    setModelName("Untitled Model")
+    setIsEditingName(false)
   }, [setCode, setGeometry, setParameters, setError])
 
   // Add generated model to scene as an editable object
@@ -187,6 +200,11 @@ export default function CreatePage() {
       setResponse(data)
       setCode(data.code)
       setParameters(data.parameters)
+
+      // Set model name from AI response description
+      if (data.description) {
+        setModelName(data.description.split(" ").slice(0, 5).join(" "))
+      }
 
       // Compile the generated code
       const geom = await compileJSCAD(data.code,
@@ -265,20 +283,11 @@ export default function CreatePage() {
     setSaveSuccess(false)
 
     try {
-      // Generate name from response description, parameters, or default
-      let modelName = "Custom Model"
-      if (response?.description) {
-        modelName = response.description.split(" ").slice(0, 5).join(" ")
-      } else if (parameters.length > 0) {
-        // Try to extract a meaningful name from the code or use parameter-based naming
-        modelName = `Custom Model ${new Date().toLocaleDateString()}`
-      }
-
       const thumbnailUrl = await captureThumbnail()
 
       const { error } = await supabase.from("models").insert({
         user_id: user.id,
-        name: modelName,
+        name: modelName || "Untitled Model",
         description: response?.description || `Custom parametric model with ${parameters.length} parameters`,
         code: code,
         parameters: response?.parameters || parameters,
@@ -306,9 +315,33 @@ export default function CreatePage() {
     <div className="flex flex-col h-full">
       {/* Simple Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-gray-900/50">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Sparkles className="w-5 h-5 text-cyan-400" />
-          <h1 className="text-lg font-semibold text-gray-200">3D Creator</h1>
+          {isEditingName ? (
+            <input
+              type="text"
+              value={modelName}
+              onChange={(e) => setModelName(e.target.value)}
+              onBlur={() => setIsEditingName(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") setIsEditingName(false)
+                if (e.key === "Escape") setIsEditingName(false)
+              }}
+              autoFocus
+              className="text-lg font-semibold text-gray-200 bg-gray-800 border border-cyan-500/50 rounded px-2 py-0.5 outline-none focus:border-cyan-400 min-w-[200px]"
+            />
+          ) : (
+            <button
+              onClick={() => setIsEditingName(true)}
+              className="flex items-center gap-2 group"
+              title="Click to edit name"
+            >
+              <h1 className="text-lg font-semibold text-gray-200 group-hover:text-cyan-400 transition-colors">
+                {modelName}
+              </h1>
+              <Pencil className="w-3.5 h-3.5 text-gray-500 group-hover:text-cyan-400 transition-colors" />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {(code || prompt) && (
