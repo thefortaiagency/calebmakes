@@ -31,10 +31,31 @@ export async function POST(request: Request) {
       }
     )
 
-    console.log("Image generated:", output)
+    console.log("Image generated - output type:", typeof output)
+    console.log("Is array:", Array.isArray(output))
 
-    // Output is an array of image URLs
-    const imageUrl = Array.isArray(output) ? output[0] : output
+    // Output is an array of FileOutput objects (which are also ReadableStreams)
+    // To get the URL, we use String(fileOutput) or fileOutput.url().href
+    let imageUrl: string | null = null
+
+    if (Array.isArray(output) && output.length > 0) {
+      const fileOutput = output[0]
+      // FileOutput objects convert to URL string via toString()
+      imageUrl = String(fileOutput)
+      console.log("Extracted URL from FileOutput:", imageUrl)
+    } else if (typeof output === "string") {
+      imageUrl = output
+    }
+
+    console.log("Final imageUrl:", imageUrl)
+
+    if (!imageUrl || imageUrl === "[object Object]" || imageUrl === "[object ReadableStream]") {
+      console.error("Could not extract image URL from output:", output)
+      return Response.json(
+        { error: "Failed to get image URL from generation" },
+        { status: 500 }
+      )
+    }
 
     return Response.json({
       success: true,

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useRef } from "react"
-import Image from "next/image"
 import { Wand2, Loader2, Upload, ArrowRight, RotateCcw, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -231,12 +230,15 @@ export default function ImagineIt({ onModelGenerated }: ImagineItProps) {
       {step === "preview-image" && imageUrl && (
         <div className="space-y-3">
           <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-800 border border-gray-700">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={imageUrl}
               alt="Generated image"
-              fill
-              className="object-contain"
-              unoptimized
+              className="absolute inset-0 w-full h-full object-contain"
+              onError={(e) => {
+                console.error("Image failed to load:", imageUrl)
+                e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23374151' width='100' height='100'/%3E%3Ctext x='50' y='50' text-anchor='middle' fill='%239CA3AF' dy='.3em'%3EImage Error%3C/text%3E%3C/svg%3E"
+              }}
             />
           </div>
 
