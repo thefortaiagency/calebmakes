@@ -2580,6 +2580,1663 @@ export const TEMPLATES: Template[] = [
   return base;
 }`,
   },
+  // ============================================
+  // GRIDFINITY MODULES
+  // ============================================
+  {
+    id: "gridfinity-bin-simple",
+    name: "Gridfinity Simple Bin",
+    description: "Standard Gridfinity storage bin in customizable sizes. Perfect for small parts organization.",
+    category: "gridfinity",
+    difficulty: "easy",
+    estimatedPrintTime: "45 min",
+    printTime: "45 min",
+    material: "PLA",
+    icon: "📦",
+    tags: ["gridfinity", "bin", "storage", "organization", "modular"],
+    dimensions: { width: 42, depth: 42, height: 42 },
+    parameters: [
+      { name: "gridX", type: "number", default: 1, min: 1, max: 4, step: 1, label: "Grid Units X" },
+      { name: "gridY", type: "number", default: 1, min: 1, max: 4, step: 1, label: "Grid Units Y" },
+      { name: "height", type: "number", default: 42, min: 21, max: 84, step: 7, label: "Height (mm)" },
+      { name: "wallThickness", type: "number", default: 2, min: 1, max: 4, step: 0.5, label: "Wall Thickness" }
+    ],
+    notes: [
+      "Standard Gridfinity grid is 42mm",
+      "Heights are multiples of 7mm",
+      "Print upside down for smooth bottom"
+    ],
+    code: `function main(params) {
+  const { gridX = 1, gridY = 1, height = 42, wallThickness = 2 } = params;
+  const gridSize = 42;
+  const width = gridX * gridSize;
+  const depth = gridY * gridSize;
+  const lipHeight = 4;
+
+  // Outer shell
+  let bin = cuboid({ size: [width - 0.5, depth - 0.5, height], center: [0, 0, height/2] });
+
+  // Inner cavity
+  const inner = cuboid({
+    size: [width - wallThickness*2, depth - wallThickness*2, height - wallThickness],
+    center: [0, 0, height/2 + wallThickness/2]
+  });
+  bin = subtract(bin, inner);
+
+  // Bottom stacking lip
+  const lip = cuboid({ size: [width - 1, depth - 1, lipHeight], center: [0, 0, lipHeight/2] });
+  const lipInner = cuboid({ size: [width - 5, depth - 5, lipHeight + 1], center: [0, 0, lipHeight/2] });
+  const lipRing = subtract(lip, lipInner);
+  bin = union(bin, lipRing);
+
+  return translate([0, 0, 0], bin);
+}`,
+  },
+  {
+    id: "gridfinity-divider-bin",
+    name: "Gridfinity Divided Bin",
+    description: "Multi-compartment Gridfinity bin with adjustable dividers for sorting small components.",
+    category: "gridfinity",
+    difficulty: "easy",
+    estimatedPrintTime: "1h",
+    printTime: "1h",
+    material: "PLA",
+    icon: "📦",
+    tags: ["gridfinity", "dividers", "sorting", "components", "modular"],
+    dimensions: { width: 84, depth: 42, height: 42 },
+    parameters: [
+      { name: "gridX", type: "number", default: 2, min: 2, max: 4, step: 1, label: "Grid Units X" },
+      { name: "gridY", type: "number", default: 1, min: 1, max: 4, step: 1, label: "Grid Units Y" },
+      { name: "divisionsX", type: "number", default: 2, min: 1, max: 6, step: 1, label: "Divisions X" },
+      { name: "divisionsY", type: "number", default: 1, min: 1, max: 4, step: 1, label: "Divisions Y" },
+      { name: "height", type: "number", default: 42, min: 21, max: 84, step: 7, label: "Height (mm)" }
+    ],
+    notes: [
+      "Great for resistors, screws, or beads",
+      "Dividers print as part of bin",
+      "Label areas on front lip"
+    ],
+    code: `function main(params) {
+  const { gridX = 2, gridY = 1, divisionsX = 2, divisionsY = 1, height = 42 } = params;
+  const gridSize = 42;
+  const width = gridX * gridSize - 0.5;
+  const depth = gridY * gridSize - 0.5;
+  const wall = 2;
+
+  let bin = cuboid({ size: [width, depth, height], center: [0, 0, height/2] });
+  const inner = cuboid({
+    size: [width - wall*2, depth - wall*2, height - wall],
+    center: [0, 0, height/2 + wall/2]
+  });
+  bin = subtract(bin, inner);
+
+  // Add dividers
+  const dividerThickness = 1.5;
+  const innerW = width - wall*2;
+  const innerD = depth - wall*2;
+
+  for (let i = 1; i < divisionsX; i++) {
+    const xPos = -innerW/2 + (innerW / divisionsX) * i;
+    const divider = cuboid({
+      size: [dividerThickness, innerD, height - wall],
+      center: [xPos, 0, height/2 + wall/2]
+    });
+    bin = union(bin, divider);
+  }
+
+  for (let j = 1; j < divisionsY; j++) {
+    const yPos = -innerD/2 + (innerD / divisionsY) * j;
+    const divider = cuboid({
+      size: [innerW, dividerThickness, height - wall],
+      center: [0, yPos, height/2 + wall/2]
+    });
+    bin = union(bin, divider);
+  }
+
+  return bin;
+}`,
+  },
+  {
+    id: "gridfinity-screw-sorter",
+    name: "Gridfinity Screw Sorter",
+    description: "Angled compartments for easy screw access. Each slot sized for common screw lengths.",
+    category: "gridfinity",
+    difficulty: "medium",
+    estimatedPrintTime: "1.5h",
+    printTime: "1.5h",
+    material: "PLA",
+    icon: "🔩",
+    tags: ["gridfinity", "screws", "hardware", "sorting", "angled"],
+    dimensions: { width: 84, depth: 84, height: 42 },
+    parameters: [
+      { name: "slots", type: "number", default: 6, min: 3, max: 10, step: 1, label: "Number of Slots" },
+      { name: "angle", type: "number", default: 45, min: 30, max: 60, step: 5, label: "Slot Angle (deg)" },
+      { name: "slotWidth", type: "number", default: 12, min: 8, max: 20, step: 2, label: "Slot Width (mm)" }
+    ],
+    notes: [
+      "Angled slots make grabbing screws easier",
+      "Print flat side down",
+      "Label maker friendly front edge"
+    ],
+    code: `function main(params) {
+  const { slots = 6, angle = 45, slotWidth = 12 } = params;
+  const width = 83;
+  const depth = 83;
+  const height = 42;
+
+  let bin = cuboid({ size: [width, depth, height], center: [0, 0, height/2] });
+
+  const slotSpacing = (width - 4) / slots;
+  const slotDepth = depth - 10;
+  const angleRad = degToRad(angle);
+
+  for (let i = 0; i < slots; i++) {
+    const xPos = -width/2 + slotSpacing/2 + 2 + i * slotSpacing;
+    let slot = cuboid({
+      size: [slotWidth, slotDepth, height],
+      center: [0, 0, height/2]
+    });
+    slot = rotateX(-angleRad, slot);
+    slot = translate([xPos, -5, height/2 + 5], slot);
+    bin = subtract(bin, slot);
+  }
+
+  return bin;
+}`,
+  },
+  // ============================================
+  // KITCHEN & HOUSEHOLD
+  // ============================================
+  {
+    id: "coaster-hexagon",
+    name: "Hexagonal Coaster Set",
+    description: "Modern hexagonal coasters that tessellate together. Raised edges prevent spills.",
+    category: "household",
+    difficulty: "easy",
+    estimatedPrintTime: "30 min",
+    printTime: "30 min",
+    material: "PLA",
+    icon: "🍺",
+    tags: ["coaster", "kitchen", "hexagon", "drink", "modern"],
+    dimensions: { width: 100, depth: 87, height: 6 },
+    parameters: [
+      { name: "size", type: "number", default: 50, min: 40, max: 70, step: 5, label: "Hex Size (mm)" },
+      { name: "thickness", type: "number", default: 4, min: 3, max: 8, step: 1, label: "Thickness (mm)" },
+      { name: "rimHeight", type: "number", default: 2, min: 0, max: 5, step: 1, label: "Rim Height (mm)" },
+      { name: "pattern", type: "boolean", default: true, label: "Add Pattern" }
+    ],
+    notes: [
+      "Print with first layer at 100% flow for waterproofing",
+      "Multiple coasters tessellate together",
+      "TPU version is quieter"
+    ],
+    code: `function main(params) {
+  const { size = 50, thickness = 4, rimHeight = 2, pattern = true } = params;
+
+  // Main hexagon body
+  let coaster = cylinder({ radius: size, height: thickness, segments: 6 });
+  coaster = translate([0, 0, thickness/2], coaster);
+
+  // Add rim
+  if (rimHeight > 0) {
+    let rim = cylinder({ radius: size, height: thickness + rimHeight, segments: 6 });
+    let rimInner = cylinder({ radius: size - 3, height: thickness + rimHeight + 1, segments: 6 });
+    rim = subtract(rim, rimInner);
+    rim = translate([0, 0, (thickness + rimHeight)/2], rim);
+    coaster = union(coaster, rim);
+  }
+
+  // Add decorative pattern
+  if (pattern) {
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * 60) * Math.PI / 180;
+      const x = Math.cos(angle) * (size * 0.5);
+      const y = Math.sin(angle) * (size * 0.5);
+      let groove = cylinder({ radius: 8, height: 1.5, segments: 6 });
+      groove = translate([x, y, thickness + rimHeight - 0.5], groove);
+      coaster = subtract(coaster, groove);
+    }
+  }
+
+  return coaster;
+}`,
+  },
+  {
+    id: "utensil-holder",
+    name: "Kitchen Utensil Holder",
+    description: "Countertop utensil holder with drainage holes. Fits spatulas, spoons, and whisks.",
+    category: "household",
+    difficulty: "easy",
+    estimatedPrintTime: "3h",
+    printTime: "3h",
+    material: "PETG",
+    icon: "🥄",
+    tags: ["kitchen", "utensil", "holder", "countertop", "drainage"],
+    dimensions: { width: 120, depth: 120, height: 150 },
+    parameters: [
+      { name: "diameter", type: "number", default: 120, min: 80, max: 150, step: 10, label: "Diameter (mm)" },
+      { name: "height", type: "number", default: 150, min: 100, max: 200, step: 10, label: "Height (mm)" },
+      { name: "wallThickness", type: "number", default: 3, min: 2, max: 5, step: 0.5, label: "Wall Thickness" },
+      { name: "drainHoles", type: "boolean", default: true, label: "Drain Holes" }
+    ],
+    notes: [
+      "PETG for food safety and durability",
+      "Drain holes prevent water pooling",
+      "Hand wash recommended"
+    ],
+    code: `function main(params) {
+  const { diameter = 120, height = 150, wallThickness = 3, drainHoles = true } = params;
+  const radius = diameter / 2;
+
+  let holder = cylinder({ radius: radius, height: height, segments: 64 });
+  holder = translate([0, 0, height/2], holder);
+
+  const innerRadius = radius - wallThickness;
+  let inner = cylinder({ radius: innerRadius, height: height - wallThickness, segments: 64 });
+  inner = translate([0, 0, height/2 + wallThickness/2], inner);
+  holder = subtract(holder, inner);
+
+  if (drainHoles) {
+    const holeRadius = 5;
+    const holeRing = innerRadius * 0.6;
+    for (let i = 0; i < 8; i++) {
+      const angle = (i * 45) * Math.PI / 180;
+      const x = Math.cos(angle) * holeRing;
+      const y = Math.sin(angle) * holeRing;
+      let hole = cylinder({ radius: holeRadius, height: wallThickness * 2, segments: 16 });
+      hole = translate([x, y, wallThickness/2], hole);
+      holder = subtract(holder, hole);
+    }
+  }
+
+  return holder;
+}`,
+  },
+  {
+    id: "bag-clip",
+    name: "Chip Bag Clip",
+    description: "Spring-loaded chip bag clip to keep snacks fresh. Works on bags up to 15cm wide.",
+    category: "household",
+    difficulty: "easy",
+    estimatedPrintTime: "20 min",
+    printTime: "20 min",
+    material: "PETG",
+    icon: "📎",
+    tags: ["kitchen", "clip", "bag", "snack", "food"],
+    dimensions: { width: 100, depth: 25, height: 15 },
+    parameters: [
+      { name: "length", type: "number", default: 100, min: 60, max: 150, step: 10, label: "Clip Length (mm)" },
+      { name: "gripWidth", type: "number", default: 20, min: 15, max: 30, step: 5, label: "Grip Width (mm)" },
+      { name: "springForce", type: "number", default: 2, min: 1, max: 4, step: 0.5, label: "Spring Thickness" }
+    ],
+    notes: [
+      "PETG for flexibility and strength",
+      "Print on side for best spring action",
+      "No supports needed"
+    ],
+    code: `function main(params) {
+  const { length = 100, gripWidth = 20, springForce = 2 } = params;
+
+  const height = 12;
+  const thickness = springForce;
+
+  // Top jaw
+  let topJaw = cuboid({ size: [length, gripWidth, thickness] });
+  topJaw = translate([0, 0, height - thickness/2], topJaw);
+
+  // Bottom jaw
+  let bottomJaw = cuboid({ size: [length, gripWidth, thickness] });
+  bottomJaw = translate([0, 0, thickness/2], bottomJaw);
+
+  // Hinge/spring section
+  const hingeRadius = height / 2;
+  let hinge = cylinder({ radius: hingeRadius, height: gripWidth, segments: 32 });
+  hinge = rotateX(Math.PI/2, hinge);
+  hinge = translate([length/2 - hingeRadius, 0, height/2], hinge);
+
+  let hingeHole = cylinder({ radius: hingeRadius - thickness, height: gripWidth + 2, segments: 32 });
+  hingeHole = rotateX(Math.PI/2, hingeHole);
+  hingeHole = translate([length/2 - hingeRadius, 0, height/2], hingeHole);
+
+  let clip = union(topJaw, bottomJaw, hinge);
+  clip = subtract(clip, hingeHole);
+
+  // Grip ridges
+  for (let i = 0; i < 5; i++) {
+    const xPos = -length/2 + 15 + i * 18;
+    let ridge = cuboid({ size: [3, gripWidth, 2] });
+    ridge = translate([xPos, 0, height + 1], ridge);
+    clip = union(clip, ridge);
+  }
+
+  return clip;
+}`,
+  },
+  {
+    id: "hook-command",
+    name: "Command Hook Alternative",
+    description: "3M Command strip compatible wall hook. Removable and damage-free mounting.",
+    category: "wall-mount",
+    difficulty: "easy",
+    estimatedPrintTime: "15 min",
+    printTime: "15 min",
+    material: "PLA",
+    icon: "🪝",
+    tags: ["hook", "wall", "command", "mounting", "adhesive"],
+    dimensions: { width: 30, depth: 40, height: 50 },
+    parameters: [
+      { name: "hookSize", type: "number", default: 15, min: 10, max: 25, step: 5, label: "Hook Opening (mm)" },
+      { name: "strength", type: "number", default: 5, min: 3, max: 8, step: 1, label: "Hook Thickness (mm)" },
+      { name: "backWidth", type: "number", default: 30, min: 25, max: 50, step: 5, label: "Back Plate Width" }
+    ],
+    nonPrintedParts: ["3M Command strip (medium or large)"],
+    notes: [
+      "Use 3M Command strips for mounting",
+      "Flat back for adhesive contact",
+      "Print hook side up"
+    ],
+    code: `function main(params) {
+  const { hookSize = 15, strength = 5, backWidth = 30 } = params;
+
+  // Back plate (for Command strip)
+  let backPlate = cuboid({ size: [backWidth, 3, 45] });
+  backPlate = translate([0, -3/2, 45/2], backPlate);
+
+  // Hook arm
+  let arm = cuboid({ size: [strength, hookSize + 10, strength] });
+  arm = translate([0, (hookSize + 10)/2, 40], arm);
+
+  // Hook curve
+  let hook = cylinder({ radius: hookSize, height: strength, segments: 32 });
+  hook = rotateX(Math.PI/2, hook);
+  hook = translate([0, hookSize + 8, 40 - hookSize - strength/2], hook);
+
+  let hookInner = cylinder({ radius: hookSize - strength, height: strength + 2, segments: 32 });
+  hookInner = rotateX(Math.PI/2, hookInner);
+  hookInner = translate([0, hookSize + 8, 40 - hookSize - strength/2], hookInner);
+
+  let hookCut = cuboid({ size: [strength + 2, hookSize * 2, hookSize * 2] });
+  hookCut = translate([0, hookSize * 1.5, 40], hookCut);
+
+  hook = subtract(hook, hookInner, hookCut);
+
+  return union(backPlate, arm, hook);
+}`,
+  },
+  // ============================================
+  // ELECTRONICS ENCLOSURES
+  // ============================================
+  {
+    id: "raspberry-pi-case",
+    name: "Raspberry Pi 4 Case",
+    description: "Snap-fit case for Raspberry Pi 4B with ventilation and GPIO access.",
+    category: "electronics",
+    difficulty: "medium",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PETG",
+    icon: "🖥️",
+    tags: ["raspberry-pi", "case", "electronics", "computer", "enclosure"],
+    dimensions: { width: 90, depth: 65, height: 30 },
+    parameters: [
+      { name: "ventSlots", type: "boolean", default: true, label: "Ventilation Slots" },
+      { name: "gpioAccess", type: "boolean", default: true, label: "GPIO Access Slot" },
+      { name: "wallThickness", type: "number", default: 2, min: 1.5, max: 3, step: 0.5, label: "Wall Thickness" },
+      { name: "snapFit", type: "boolean", default: true, label: "Snap-Fit Lid" }
+    ],
+    nonPrintedParts: ["Raspberry Pi 4 Model B", "M2.5 screws (optional)"],
+    notes: [
+      "PETG for heat resistance",
+      "Print base and lid separately",
+      "Supports only for USB/HDMI ports"
+    ],
+    code: `function main(params) {
+  const { ventSlots = true, gpioAccess = true, wallThickness = 2, snapFit = true } = params;
+
+  // Pi 4 dimensions
+  const piW = 85;
+  const piD = 56;
+  const piH = 17;
+
+  const w = piW + wallThickness * 2 + 1;
+  const d = piD + wallThickness * 2 + 1;
+  const h = piH + wallThickness + 4;
+
+  // Base
+  let base = cuboid({ size: [w, d, h] });
+  base = translate([0, 0, h/2], base);
+
+  let cavity = cuboid({ size: [w - wallThickness*2, d - wallThickness*2, h - wallThickness] });
+  cavity = translate([0, 0, h/2 + wallThickness/2], cavity);
+  base = subtract(base, cavity);
+
+  // Port cutouts (USB, Ethernet, HDMI side)
+  let usbCut = cuboid({ size: [20, wallThickness * 3, 16] });
+  usbCut = translate([w/2 - 25, -d/2, h/2 + 2], usbCut);
+  base = subtract(base, usbCut);
+
+  // USB-C power
+  let powerCut = cuboid({ size: [12, wallThickness * 3, 8] });
+  powerCut = translate([-w/2 + 15, -d/2, wallThickness + 5], powerCut);
+  base = subtract(base, powerCut);
+
+  // Ventilation
+  if (ventSlots) {
+    for (let i = 0; i < 8; i++) {
+      let slot = cuboid({ size: [30, 3, wallThickness * 2] });
+      slot = translate([0, -d/4 + i * 7, wallThickness/2], slot);
+      base = subtract(base, slot);
+    }
+  }
+
+  // GPIO slot
+  if (gpioAccess) {
+    let gpio = cuboid({ size: [52, 8, h + 2] });
+    gpio = translate([0, d/2 - 6, h/2], gpio);
+    base = subtract(base, gpio);
+  }
+
+  return base;
+}`,
+  },
+  {
+    id: "arduino-case",
+    name: "Arduino Uno Case",
+    description: "Protective case for Arduino Uno with USB and power access. Stackable design.",
+    category: "electronics",
+    difficulty: "easy",
+    estimatedPrintTime: "1.5h",
+    printTime: "1.5h",
+    material: "PLA",
+    icon: "🔌",
+    tags: ["arduino", "case", "electronics", "microcontroller", "enclosure"],
+    dimensions: { width: 75, depth: 58, height: 25 },
+    parameters: [
+      { name: "ventHoles", type: "boolean", default: true, label: "Ventilation Holes" },
+      { name: "mountingHoles", type: "boolean", default: true, label: "Wall Mount Holes" },
+      { name: "lidType", type: "number", default: 1, min: 0, max: 2, step: 1, label: "Lid Type (0=none, 1=snap, 2=screw)" }
+    ],
+    nonPrintedParts: ["Arduino Uno board", "M3 screws for lid (if screw type)"],
+    notes: [
+      "USB-B and power jack accessible",
+      "Reset button accessible through lid",
+      "Pin headers can be exposed or covered"
+    ],
+    code: `function main(params) {
+  const { ventHoles = true, mountingHoles = true, lidType = 1 } = params;
+
+  const w = 72;
+  const d = 55;
+  const h = 22;
+  const wall = 2;
+
+  // Base box
+  let base = cuboid({ size: [w, d, h] });
+  base = translate([0, 0, h/2], base);
+
+  let inner = cuboid({ size: [w - wall*2, d - wall*2, h - wall] });
+  inner = translate([0, 0, h/2 + wall/2], inner);
+  base = subtract(base, inner);
+
+  // USB cutout
+  let usb = cuboid({ size: [14, wall * 3, 12] });
+  usb = translate([-w/2 + 18, d/2, wall + 7], usb);
+  base = subtract(base, usb);
+
+  // Power jack cutout
+  let power = cuboid({ size: [12, wall * 3, 12] });
+  power = translate([-w/2 + 5, d/2, wall + 6], power);
+  base = subtract(base, power);
+
+  // Ventilation
+  if (ventHoles) {
+    for (let i = 0; i < 5; i++) {
+      let hole = cylinder({ radius: 3, height: wall * 2, segments: 16 });
+      hole = translate([w/4 - 8 + i * 8, 0, wall/2], hole);
+      base = subtract(base, hole);
+    }
+  }
+
+  // Mounting holes
+  if (mountingHoles) {
+    for (const [x, y] of [[-w/2 + 8, -d/2 + 5], [w/2 - 8, -d/2 + 5]]) {
+      let mount = cylinder({ radius: 4, height: 4, segments: 16 });
+      mount = translate([x, y, h + 2], mount);
+      let mountHole = cylinder({ radius: 2, height: 6, segments: 16 });
+      mountHole = translate([x, y, h + 2], mountHole);
+      base = union(base, mount);
+      base = subtract(base, mountHole);
+    }
+  }
+
+  return base;
+}`,
+  },
+  {
+    id: "usb-hub-holder",
+    name: "USB Hub Desk Mount",
+    description: "Under-desk or desktop mount for USB hubs. Keeps ports accessible and cables tidy.",
+    category: "electronics",
+    difficulty: "easy",
+    estimatedPrintTime: "1h",
+    printTime: "1h",
+    material: "PLA",
+    icon: "🔌",
+    tags: ["usb", "hub", "mount", "desk", "cable-management"],
+    dimensions: { width: 100, depth: 50, height: 40 },
+    parameters: [
+      { name: "hubWidth", type: "number", default: 85, min: 60, max: 120, step: 5, label: "Hub Width (mm)" },
+      { name: "hubDepth", type: "number", default: 35, min: 25, max: 50, step: 5, label: "Hub Depth (mm)" },
+      { name: "hubHeight", type: "number", default: 20, min: 15, max: 35, step: 5, label: "Hub Height (mm)" },
+      { name: "mountType", type: "number", default: 0, min: 0, max: 1, step: 1, label: "Mount (0=desktop, 1=under-desk)" }
+    ],
+    notes: [
+      "Measure your USB hub first",
+      "Under-desk mount uses 3M tape",
+      "Cable routing channels included"
+    ],
+    code: `function main(params) {
+  const { hubWidth = 85, hubDepth = 35, hubHeight = 20, mountType = 0 } = params;
+
+  const wall = 3;
+  const w = hubWidth + wall * 2 + 2;
+  const d = hubDepth + wall + 5;
+  const h = hubHeight + wall;
+
+  // Base cradle
+  let cradle = cuboid({ size: [w, d, h] });
+  cradle = translate([0, 0, h/2], cradle);
+
+  // Hub cavity
+  let cavity = cuboid({ size: [hubWidth + 1, hubDepth + 1, hubHeight + 5] });
+  cavity = translate([0, wall/2, h/2 + wall/2], cavity);
+  cradle = subtract(cradle, cavity);
+
+  // Cable exit slot
+  let cableSlot = cuboid({ size: [w/2, 15, wall * 2] });
+  cableSlot = translate([0, -d/2 + 8, wall/2], cableSlot);
+  cradle = subtract(cradle, cableSlot);
+
+  // Front access cutout
+  let frontCut = cuboid({ size: [hubWidth - 10, wall * 2, hubHeight] });
+  frontCut = translate([0, d/2, h/2 + wall/2], frontCut);
+  cradle = subtract(cradle, frontCut);
+
+  if (mountType === 1) {
+    // Under-desk mounting tabs
+    for (const xPos of [-w/2 - 8, w/2 + 8]) {
+      let tab = cuboid({ size: [20, d, 3] });
+      tab = translate([xPos, 0, h + 1.5], tab);
+      let hole = cylinder({ radius: 3, height: 5, segments: 16 });
+      hole = translate([xPos, 0, h + 1.5], hole);
+      cradle = union(cradle, tab);
+      cradle = subtract(cradle, hole);
+    }
+  }
+
+  return cradle;
+}`,
+  },
+  // ============================================
+  // GAMING ACCESSORIES
+  // ============================================
+  {
+    id: "dice-tower",
+    name: "Dice Rolling Tower",
+    description: "Tower dice roller with baffles for fair, random rolls. Catches dice in integrated tray.",
+    category: "gaming",
+    difficulty: "medium",
+    estimatedPrintTime: "4h",
+    printTime: "4h",
+    material: "PLA",
+    icon: "🎲",
+    tags: ["dice", "tower", "tabletop", "rpg", "dnd"],
+    dimensions: { width: 80, depth: 80, height: 180 },
+    parameters: [
+      { name: "height", type: "number", default: 180, min: 120, max: 220, step: 20, label: "Tower Height (mm)" },
+      { name: "width", type: "number", default: 60, min: 50, max: 80, step: 10, label: "Tower Width (mm)" },
+      { name: "baffles", type: "number", default: 4, min: 2, max: 6, step: 1, label: "Number of Baffles" },
+      { name: "traySize", type: "number", default: 80, min: 60, max: 100, step: 10, label: "Tray Size (mm)" }
+    ],
+    notes: [
+      "Print in two parts for easier assembly",
+      "Baffles ensure random rolls",
+      "Felt in tray reduces noise"
+    ],
+    code: `function main(params) {
+  const { height = 180, width = 60, baffles = 4, traySize = 80 } = params;
+
+  const wall = 3;
+  const depth = width;
+
+  // Tower shell
+  let tower = cuboid({ size: [width, depth, height] });
+  tower = translate([0, -traySize/2 + depth/2, height/2], tower);
+
+  let inner = cuboid({ size: [width - wall*2, depth - wall*2, height - wall] });
+  inner = translate([0, -traySize/2 + depth/2, height/2 + wall/2], inner);
+  tower = subtract(tower, inner);
+
+  // Add baffles
+  const baffleSpacing = (height - 40) / (baffles + 1);
+  for (let i = 0; i < baffles; i++) {
+    const zPos = height - 30 - (i + 1) * baffleSpacing;
+    const isLeft = i % 2 === 0;
+    let baffle = cuboid({
+      size: [width - wall*2 - 5, depth/2, wall],
+      center: [0, 0, 0]
+    });
+    baffle = rotateX(degToRad(-30), baffle);
+    const yOffset = isLeft ? -5 : 5;
+    baffle = translate([0, -traySize/2 + depth/2 + yOffset, zPos], baffle);
+    tower = union(tower, baffle);
+  }
+
+  // Exit ramp at bottom
+  let ramp = cuboid({ size: [width - wall*2, depth, wall] });
+  ramp = rotateX(degToRad(-20), ramp);
+  ramp = translate([0, -traySize/2 + depth/2 + 5, 25], ramp);
+  tower = union(tower, ramp);
+
+  // Exit opening
+  let exit = cuboid({ size: [width - wall*2 - 5, wall*3, 35] });
+  exit = translate([0, -traySize/2 + depth + 2, 20], exit);
+  tower = subtract(tower, exit);
+
+  // Dice catching tray
+  let tray = cuboid({ size: [traySize, traySize, 15] });
+  let trayInner = cuboid({ size: [traySize - wall*2, traySize - wall*2, 13] });
+  trayInner = translate([0, 0, 2], trayInner);
+  tray = subtract(tray, trayInner);
+  tray = translate([0, 10, 7.5], tray);
+
+  return union(tower, tray);
+}`,
+  },
+  {
+    id: "controller-stand",
+    name: "Game Controller Stand",
+    description: "Display stand for game controllers. Works with PlayStation, Xbox, and Nintendo Pro controllers.",
+    category: "gaming",
+    difficulty: "easy",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PLA",
+    icon: "🎮",
+    tags: ["controller", "stand", "gaming", "display", "console"],
+    dimensions: { width: 150, depth: 80, height: 100 },
+    parameters: [
+      { name: "controllerType", type: "number", default: 0, min: 0, max: 2, step: 1, label: "Type (0=Xbox, 1=PS, 2=Switch Pro)" },
+      { name: "angle", type: "number", default: 70, min: 45, max: 85, step: 5, label: "Display Angle (deg)" },
+      { name: "cableSlot", type: "boolean", default: true, label: "Charging Cable Slot" }
+    ],
+    notes: [
+      "Rubber feet recommended",
+      "Cable slot allows charging while displayed",
+      "Print without supports"
+    ],
+    code: `function main(params) {
+  const { controllerType = 0, angle = 70, cableSlot = true } = params;
+
+  // Controller dimensions vary by type
+  const widths = [155, 160, 145];
+  const depths = [105, 100, 95];
+  const cWidth = widths[controllerType];
+  const cDepth = depths[controllerType];
+
+  const baseW = cWidth + 10;
+  const baseD = 80;
+  const baseH = 10;
+
+  // Base
+  let stand = cuboid({ size: [baseW, baseD, baseH] });
+  stand = translate([0, 0, baseH/2], stand);
+
+  // Back support
+  const supportH = 100;
+  const supportT = 8;
+  const angleRad = degToRad(90 - angle);
+
+  let support = cuboid({ size: [baseW - 20, supportT, supportH] });
+  support = rotateX(-angleRad, support);
+  support = translate([0, baseD/2 - 10, baseH + supportH/3], support);
+  stand = union(stand, support);
+
+  // Controller cradle lips
+  const lipH = 15;
+  const lipW = 30;
+  for (const xPos of [-baseW/2 + lipW/2 + 5, baseW/2 - lipW/2 - 5]) {
+    let lip = cuboid({ size: [lipW, 10, lipH] });
+    lip = translate([xPos, -baseD/2 + 8, baseH + lipH/2], lip);
+    stand = union(stand, lip);
+  }
+
+  // Cable slot
+  if (cableSlot) {
+    let slot = cuboid({ size: [15, 20, baseH * 2] });
+    slot = translate([0, -baseD/2 + 15, baseH/2], slot);
+    stand = subtract(stand, slot);
+  }
+
+  return stand;
+}`,
+  },
+  {
+    id: "card-holder",
+    name: "Trading Card Display Stand",
+    description: "Display stand for trading cards, Pokemon, Magic, or sports cards. Adjustable angle.",
+    category: "gaming",
+    difficulty: "easy",
+    estimatedPrintTime: "30 min",
+    printTime: "30 min",
+    material: "PLA",
+    icon: "🃏",
+    tags: ["cards", "trading", "pokemon", "display", "stand"],
+    dimensions: { width: 70, depth: 50, height: 90 },
+    parameters: [
+      { name: "cardWidth", type: "number", default: 63, min: 55, max: 90, step: 1, label: "Card Width (mm)" },
+      { name: "cardCount", type: "number", default: 1, min: 1, max: 5, step: 1, label: "Card Slots" },
+      { name: "angle", type: "number", default: 75, min: 60, max: 85, step: 5, label: "Display Angle (deg)" }
+    ],
+    notes: [
+      "Standard trading cards are 63mm wide",
+      "Print flat side down",
+      "Felt pad prevents scratches"
+    ],
+    code: `function main(params) {
+  const { cardWidth = 63, cardCount = 1, angle = 75 } = params;
+
+  const slotWidth = cardWidth + 2;
+  const totalWidth = slotWidth * cardCount + 10;
+  const depth = 50;
+  const baseHeight = 8;
+
+  // Base
+  let stand = cuboid({ size: [totalWidth, depth, baseHeight] });
+  stand = translate([0, 0, baseHeight/2], stand);
+
+  // Card back support
+  const supportH = 85;
+  const supportT = 4;
+  const angleRad = degToRad(90 - angle);
+
+  let support = cuboid({ size: [totalWidth - 5, supportT, supportH] });
+  support = rotateX(-angleRad, support);
+  support = translate([0, depth/2 - 8, baseHeight + supportH/3], support);
+  stand = union(stand, support);
+
+  // Card slots (lips)
+  const slotDepth = 3;
+  const lipHeight = 10;
+  for (let i = 0; i < cardCount; i++) {
+    const xPos = -totalWidth/2 + slotWidth/2 + 5 + i * slotWidth;
+
+    // Front lip
+    let lip = cuboid({ size: [slotWidth - 2, 6, lipHeight] });
+    lip = translate([xPos, -depth/2 + 5, baseHeight + lipHeight/2], lip);
+
+    // Card slot groove
+    let groove = cuboid({ size: [slotWidth - 8, slotDepth, lipHeight + 2] });
+    groove = translate([xPos, -depth/2 + 7, baseHeight + lipHeight/2], groove);
+    lip = subtract(lip, groove);
+
+    stand = union(stand, lip);
+  }
+
+  return stand;
+}`,
+  },
+  // ============================================
+  // DESK & OFFICE
+  // ============================================
+  {
+    id: "monitor-riser",
+    name: "Monitor Stand Riser",
+    description: "Raise your monitor to eye level. Hollow design with storage space underneath.",
+    category: "desk-organizer",
+    difficulty: "medium",
+    estimatedPrintTime: "6h",
+    printTime: "6h",
+    material: "PLA",
+    icon: "🖥️",
+    tags: ["monitor", "stand", "riser", "desk", "ergonomic"],
+    dimensions: { width: 250, depth: 120, height: 80 },
+    parameters: [
+      { name: "width", type: "number", default: 250, min: 200, max: 400, step: 50, label: "Width (mm)" },
+      { name: "depth", type: "number", default: 120, min: 100, max: 150, step: 10, label: "Depth (mm)" },
+      { name: "height", type: "number", default: 80, min: 50, max: 120, step: 10, label: "Height (mm)" },
+      { name: "openFront", type: "boolean", default: true, label: "Open Front (storage)" }
+    ],
+    notes: [
+      "Print in sections if larger than bed",
+      "100% infill on top surface",
+      "Supports heavy monitors"
+    ],
+    code: `function main(params) {
+  const { width = 250, depth = 120, height = 80, openFront = true } = params;
+
+  const wall = 4;
+  const topThickness = 6;
+
+  // Outer shell
+  let riser = cuboid({ size: [width, depth, height] });
+  riser = translate([0, 0, height/2], riser);
+
+  // Inner cavity
+  let cavity = cuboid({
+    size: [width - wall*2, depth - wall*2, height - topThickness],
+    center: [0, 0, (height - topThickness)/2]
+  });
+  riser = subtract(riser, cavity);
+
+  // Front opening for storage access
+  if (openFront) {
+    let frontOpen = cuboid({
+      size: [width - wall*4, wall * 2, height - topThickness - 10],
+      center: [0, -depth/2, (height - topThickness)/2 - 5]
+    });
+    riser = subtract(riser, frontOpen);
+  }
+
+  // Cable routing holes
+  for (const xPos of [-width/4, width/4]) {
+    let cableHole = cylinder({ radius: 15, height: topThickness * 2, segments: 32 });
+    cableHole = translate([xPos, depth/4, height - topThickness/2], cableHole);
+    riser = subtract(riser, cableHole);
+  }
+
+  return riser;
+}`,
+  },
+  {
+    id: "desk-shelf",
+    name: "Floating Desk Shelf",
+    description: "Small floating shelf for desk items. Mounts with 3M strips or screws.",
+    category: "desk-organizer",
+    difficulty: "easy",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PLA",
+    icon: "📚",
+    tags: ["shelf", "desk", "floating", "organizer", "wall"],
+    dimensions: { width: 150, depth: 80, height: 15 },
+    parameters: [
+      { name: "width", type: "number", default: 150, min: 100, max: 250, step: 25, label: "Width (mm)" },
+      { name: "depth", type: "number", default: 80, min: 50, max: 120, step: 10, label: "Depth (mm)" },
+      { name: "lip", type: "boolean", default: true, label: "Front Lip" },
+      { name: "dividers", type: "number", default: 0, min: 0, max: 3, step: 1, label: "Dividers" }
+    ],
+    notes: [
+      "3M Command strips for rental-friendly mounting",
+      "Lip prevents items from falling",
+      "Great for small plants or photos"
+    ],
+    code: `function main(params) {
+  const { width = 150, depth = 80, lip = true, dividers = 0 } = params;
+
+  const thickness = 8;
+  const backHeight = 30;
+  const lipHeight = 10;
+
+  // Main shelf surface
+  let shelf = cuboid({ size: [width, depth, thickness] });
+  shelf = translate([0, 0, thickness/2], shelf);
+
+  // Back mounting plate
+  let back = cuboid({ size: [width, 4, backHeight] });
+  back = translate([0, depth/2 - 2, backHeight/2], back);
+  shelf = union(shelf, back);
+
+  // Front lip
+  if (lip) {
+    let frontLip = cuboid({ size: [width, 4, lipHeight] });
+    frontLip = translate([0, -depth/2 + 2, lipHeight/2], frontLip);
+    shelf = union(shelf, frontLip);
+  }
+
+  // Dividers
+  if (dividers > 0) {
+    const spacing = width / (dividers + 1);
+    for (let i = 1; i <= dividers; i++) {
+      const xPos = -width/2 + spacing * i;
+      let divider = cuboid({ size: [3, depth - 8, lipHeight] });
+      divider = translate([xPos, 0, lipHeight/2], divider);
+      shelf = union(shelf, divider);
+    }
+  }
+
+  return shelf;
+}`,
+  },
+  {
+    id: "business-card-holder",
+    name: "Business Card Holder",
+    description: "Desktop business card holder. Clean modern design with easy card access.",
+    category: "desk-organizer",
+    difficulty: "easy",
+    estimatedPrintTime: "45 min",
+    printTime: "45 min",
+    material: "PLA",
+    icon: "💼",
+    tags: ["business", "card", "holder", "desk", "office"],
+    dimensions: { width: 100, depth: 45, height: 35 },
+    parameters: [
+      { name: "capacity", type: "number", default: 50, min: 20, max: 100, step: 10, label: "Card Capacity" },
+      { name: "angle", type: "number", default: 30, min: 15, max: 45, step: 5, label: "Display Angle (deg)" },
+      { name: "thumbCut", type: "boolean", default: true, label: "Thumb Cutout" }
+    ],
+    notes: [
+      "Standard business card: 89mm x 51mm",
+      "Angled for easy card grabbing",
+      "Thumb cutout helps remove last cards"
+    ],
+    code: `function main(params) {
+  const { capacity = 50, angle = 30, thumbCut = true } = params;
+
+  // Business card dimensions
+  const cardW = 91;
+  const cardH = 53;
+  const stackDepth = Math.ceil(capacity * 0.4);
+
+  const w = cardW + 6;
+  const d = stackDepth + 10;
+  const h = 35;
+
+  const angleRad = degToRad(angle);
+
+  // Base
+  let holder = cuboid({ size: [w, d + 20, 8] });
+  holder = translate([0, 5, 4], holder);
+
+  // Card slot
+  let slot = cuboid({ size: [cardW + 2, stackDepth, cardH] });
+  slot = rotateX(-angleRad, slot);
+  slot = translate([0, 0, cardH/2 * Math.cos(angleRad) + 8], slot);
+
+  // Back support
+  let back = cuboid({ size: [w, 4, h] });
+  back = rotateX(-angleRad, back);
+  back = translate([0, d/2 + 2, h/2 * Math.cos(angleRad) + 4], back);
+  holder = union(holder, back);
+
+  // Cut the slot
+  holder = subtract(holder, slot);
+
+  // Thumb cutout
+  if (thumbCut) {
+    let thumb = cylinder({ radius: 20, height: 30, segments: 32 });
+    thumb = rotateY(Math.PI/2, thumb);
+    thumb = translate([0, -d/2 - 5, 15], thumb);
+    holder = subtract(holder, thumb);
+  }
+
+  return holder;
+}`,
+  },
+  // ============================================
+  // STORAGE & ORGANIZATION
+  // ============================================
+  {
+    id: "drawer-divider",
+    name: "Adjustable Drawer Dividers",
+    description: "Interlocking drawer dividers that adjust to any drawer size. Create custom compartments.",
+    category: "organization",
+    difficulty: "easy",
+    estimatedPrintTime: "1h",
+    printTime: "1h",
+    material: "PLA",
+    icon: "🗄️",
+    tags: ["drawer", "divider", "organization", "adjustable", "modular"],
+    dimensions: { width: 200, depth: 10, height: 50 },
+    parameters: [
+      { name: "length", type: "number", default: 200, min: 100, max: 400, step: 50, label: "Divider Length (mm)" },
+      { name: "height", type: "number", default: 50, min: 30, max: 80, step: 10, label: "Height (mm)" },
+      { name: "slots", type: "number", default: 5, min: 2, max: 10, step: 1, label: "Number of Slots" }
+    ],
+    notes: [
+      "Print multiple and interlock",
+      "Slots allow perpendicular dividers",
+      "Trim ends to fit drawer width"
+    ],
+    code: `function main(params) {
+  const { length = 200, height = 50, slots = 5 } = params;
+
+  const thickness = 3;
+  const slotWidth = 3.5;
+  const slotSpacing = (length - 20) / (slots - 1);
+
+  // Main divider panel
+  let divider = cuboid({ size: [length, thickness, height] });
+  divider = translate([0, 0, height/2], divider);
+
+  // Add interlocking slots from top
+  for (let i = 0; i < slots; i++) {
+    const xPos = -length/2 + 10 + i * slotSpacing;
+    let slot = cuboid({ size: [slotWidth, thickness * 2, height/2 + 2] });
+    slot = translate([xPos, 0, height - height/4], slot);
+    divider = subtract(divider, slot);
+  }
+
+  // Feet for stability
+  for (const xPos of [-length/2 + 15, length/2 - 15]) {
+    let foot = cuboid({ size: [20, 15, 3] });
+    foot = translate([xPos, 0, 1.5], foot);
+    divider = union(divider, foot);
+  }
+
+  return divider;
+}`,
+  },
+  {
+    id: "small-parts-bin",
+    name: "Stackable Parts Bin",
+    description: "Small parts storage bin with label area. Stacks securely with locating features.",
+    category: "organization",
+    difficulty: "easy",
+    estimatedPrintTime: "1.5h",
+    printTime: "1.5h",
+    material: "PLA",
+    icon: "📦",
+    tags: ["bin", "parts", "stackable", "storage", "label"],
+    dimensions: { width: 80, depth: 120, height: 50 },
+    parameters: [
+      { name: "width", type: "number", default: 80, min: 50, max: 150, step: 10, label: "Width (mm)" },
+      { name: "depth", type: "number", default: 120, min: 80, max: 200, step: 20, label: "Depth (mm)" },
+      { name: "height", type: "number", default: 50, min: 30, max: 100, step: 10, label: "Height (mm)" },
+      { name: "labelSlot", type: "boolean", default: true, label: "Label Slot" }
+    ],
+    notes: [
+      "Stacking ridges lock bins together",
+      "Label slot fits standard label tape",
+      "Open front for easy access"
+    ],
+    code: `function main(params) {
+  const { width = 80, depth = 120, height = 50, labelSlot = true } = params;
+
+  const wall = 2;
+
+  // Main bin
+  let bin = cuboid({ size: [width, depth, height] });
+  bin = translate([0, 0, height/2], bin);
+
+  // Inner cavity
+  let inner = cuboid({
+    size: [width - wall*2, depth - wall*2, height - wall],
+    center: [0, 0, height/2 + wall/2]
+  });
+  bin = subtract(bin, inner);
+
+  // Open front scoop
+  let scoop = cylinder({ radius: height * 0.6, height: width - wall*2, segments: 32 });
+  scoop = rotateY(Math.PI/2, scoop);
+  scoop = translate([0, -depth/2, height * 0.4], scoop);
+  bin = subtract(bin, scoop);
+
+  // Stacking ridge on top
+  let ridge = cuboid({ size: [width - 4, depth - 4, 3] });
+  ridge = translate([0, 0, height + 1.5], ridge);
+  bin = union(bin, ridge);
+
+  // Stacking groove on bottom (slightly larger)
+  let groove = cuboid({ size: [width - 3, depth - 3, 4] });
+  groove = translate([0, 0, 2], groove);
+  bin = subtract(bin, groove);
+
+  // Label slot on front
+  if (labelSlot) {
+    let label = cuboid({ size: [width * 0.6, 2, 12] });
+    label = translate([0, -depth/2 + wall/2, height - 8], label);
+    bin = subtract(bin, label);
+  }
+
+  return bin;
+}`,
+  },
+  {
+    id: "spice-rack",
+    name: "Spice Jar Rack",
+    description: "Tiered spice rack for standard spice jars. Labels visible at a glance.",
+    category: "household",
+    difficulty: "medium",
+    estimatedPrintTime: "4h",
+    printTime: "4h",
+    material: "PLA",
+    icon: "🧂",
+    tags: ["spice", "rack", "kitchen", "tiered", "organization"],
+    dimensions: { width: 200, depth: 80, height: 80 },
+    parameters: [
+      { name: "jars", type: "number", default: 10, min: 4, max: 15, step: 1, label: "Number of Jars" },
+      { name: "jarDiameter", type: "number", default: 45, min: 35, max: 55, step: 5, label: "Jar Diameter (mm)" },
+      { name: "tiers", type: "number", default: 2, min: 1, max: 3, step: 1, label: "Tiers" }
+    ],
+    notes: [
+      "Measure your spice jars first",
+      "Tiered design shows all labels",
+      "Non-slip feet recommended"
+    ],
+    code: `function main(params) {
+  const { jars = 10, jarDiameter = 45, tiers = 2 } = params;
+
+  const jarSpacing = jarDiameter + 5;
+  const jarsPerTier = Math.ceil(jars / tiers);
+  const width = jarsPerTier * jarSpacing + 10;
+  const tierDepth = jarDiameter + 10;
+  const tierHeight = 25;
+  const depth = tierDepth * tiers;
+
+  let rack = [];
+
+  for (let t = 0; t < tiers; t++) {
+    const tierZ = t * tierHeight;
+    const tierY = -depth/2 + tierDepth/2 + t * tierDepth;
+
+    // Tier platform
+    let platform = cuboid({ size: [width, tierDepth, 4] });
+    platform = translate([0, tierY, tierZ + 2], platform);
+    rack.push(platform);
+
+    // Back lip to hold jars
+    let lip = cuboid({ size: [width, 4, 15] });
+    lip = translate([0, tierY + tierDepth/2 - 2, tierZ + 9], lip);
+    rack.push(lip);
+
+    // Jar wells
+    for (let j = 0; j < jarsPerTier; j++) {
+      const xPos = -width/2 + jarSpacing/2 + 5 + j * jarSpacing;
+      let well = cylinder({ radius: jarDiameter/2 - 2, height: 3, segments: 32 });
+      well = translate([xPos, tierY, tierZ + 4.5], well);
+      rack.push(well);
+    }
+  }
+
+  // Combine and add side supports
+  let result = union(...rack);
+
+  // Side walls
+  for (const xPos of [-width/2, width/2 - 4]) {
+    let side = cuboid({ size: [4, depth, tiers * tierHeight + 10] });
+    side = translate([xPos + 2, 0, (tiers * tierHeight + 10)/2], side);
+    result = union(result, side);
+  }
+
+  return result;
+}`,
+  },
+  // ============================================
+  // TOOLS & ACCESSORIES
+  // ============================================
+  {
+    id: "screwdriver-holder",
+    name: "Screwdriver Organizer",
+    description: "Wall or desktop holder for screwdriver set. Angled slots for easy access.",
+    category: "maker-tools",
+    difficulty: "easy",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PLA",
+    icon: "🔧",
+    tags: ["screwdriver", "tools", "organizer", "workshop", "holder"],
+    dimensions: { width: 150, depth: 60, height: 80 },
+    parameters: [
+      { name: "slots", type: "number", default: 6, min: 4, max: 12, step: 1, label: "Number of Slots" },
+      { name: "slotDiameter", type: "number", default: 12, min: 8, max: 20, step: 2, label: "Slot Diameter (mm)" },
+      { name: "wallMount", type: "boolean", default: false, label: "Wall Mount Holes" }
+    ],
+    notes: [
+      "Angled slots for easy grab",
+      "Works with precision and standard sizes",
+      "Keyholes for wall mounting"
+    ],
+    code: `function main(params) {
+  const { slots = 6, slotDiameter = 12, wallMount = false } = params;
+
+  const spacing = slotDiameter + 8;
+  const width = slots * spacing + 20;
+  const depth = 60;
+  const height = 80;
+  const angle = degToRad(15);
+
+  // Main body
+  let holder = cuboid({ size: [width, depth, height] });
+  holder = translate([0, 0, height/2], holder);
+
+  // Angled slots
+  for (let i = 0; i < slots; i++) {
+    const xPos = -width/2 + spacing/2 + 10 + i * spacing;
+    let slot = cylinder({ radius: slotDiameter/2, height: height + 10, segments: 24 });
+    slot = rotateX(-angle, slot);
+    slot = translate([xPos, 5, height/2 + 10], slot);
+    holder = subtract(holder, slot);
+  }
+
+  // Front cutaway for easy access
+  let frontCut = cuboid({ size: [width - 10, 20, height/2] });
+  frontCut = translate([0, -depth/2 + 5, height * 0.6], frontCut);
+  holder = subtract(holder, frontCut);
+
+  // Wall mount keyholes
+  if (wallMount) {
+    for (const xPos of [-width/3, width/3]) {
+      // Keyhole top (screw head)
+      let keyTop = cylinder({ radius: 5, height: 8, segments: 16 });
+      keyTop = rotateX(Math.PI/2, keyTop);
+      keyTop = translate([xPos, depth/2 - 4, height - 15], keyTop);
+
+      // Keyhole slot
+      let keySlot = cuboid({ size: [6, 8, 12] });
+      keySlot = translate([xPos, depth/2 - 4, height - 8], keySlot);
+
+      holder = subtract(holder, keyTop, keySlot);
+    }
+  }
+
+  return holder;
+}`,
+  },
+  {
+    id: "tape-dispenser",
+    name: "Desktop Tape Dispenser",
+    description: "Weighted tape dispenser for standard office tape rolls. One-handed operation.",
+    category: "desk-organizer",
+    difficulty: "medium",
+    estimatedPrintTime: "2.5h",
+    printTime: "2.5h",
+    material: "PLA",
+    icon: "📋",
+    tags: ["tape", "dispenser", "desk", "office", "weighted"],
+    dimensions: { width: 120, depth: 60, height: 70 },
+    parameters: [
+      { name: "coreID", type: "number", default: 25, min: 20, max: 40, step: 5, label: "Tape Core ID (mm)" },
+      { name: "tapeWidth", type: "number", default: 19, min: 12, max: 25, step: 1, label: "Tape Width (mm)" },
+      { name: "weighted", type: "boolean", default: true, label: "Weighted Base (fill with coins)" }
+    ],
+    nonPrintedParts: ["Standard tape roll", "Coins or weights for base (optional)"],
+    notes: [
+      "Measure your tape roll first",
+      "Fill base with coins for stability",
+      "Serrated edge cuts tape cleanly"
+    ],
+    code: `function main(params) {
+  const { coreID = 25, tapeWidth = 19, weighted = true } = params;
+
+  const coreRadius = coreID / 2;
+  const rollRadius = coreRadius + 30;
+  const width = tapeWidth + 10;
+  const baseW = rollRadius * 2 + 30;
+  const baseD = 60;
+  const baseH = weighted ? 25 : 15;
+
+  // Base
+  let dispenser = cuboid({ size: [baseW, baseD, baseH] });
+  dispenser = translate([0, 0, baseH/2], dispenser);
+
+  // Weight cavity
+  if (weighted) {
+    let cavity = cuboid({ size: [baseW - 8, baseD - 8, baseH - 4] });
+    cavity = translate([0, 0, baseH/2], cavity);
+    dispenser = subtract(dispenser, cavity);
+  }
+
+  // Roll holder arm
+  const armHeight = rollRadius + baseH + 10;
+  let arm = cuboid({ size: [width, 8, armHeight] });
+  arm = translate([-baseW/2 + width/2 + 5, 0, armHeight/2], arm);
+  dispenser = union(dispenser, arm);
+
+  // Core axle
+  let axle = cylinder({ radius: coreRadius - 0.5, height: width - 2, segments: 32 });
+  axle = rotateY(Math.PI/2, axle);
+  axle = translate([-baseW/2 + width/2 + 5, 0, baseH + rollRadius + 5], axle);
+  dispenser = union(dispenser, axle);
+
+  // Tape guide and cutter platform
+  let cutterBase = cuboid({ size: [width + 10, 25, 8] });
+  cutterBase = translate([baseW/2 - width/2 - 5, baseD/2 - 10, baseH + 4], cutterBase);
+  dispenser = union(dispenser, cutterBase);
+
+  // Serrated cutting edge
+  for (let i = 0; i < 8; i++) {
+    const xPos = baseW/2 - width/2 - 5 - (width/2) + i * (width/8);
+    let tooth = cuboid({ size: [2, 3, 3] });
+    tooth = translate([xPos, baseD/2 + 2, baseH + 9], tooth);
+    dispenser = union(dispenser, tooth);
+  }
+
+  return dispenser;
+}`,
+  },
+  // ============================================
+  // DECORATIVE & FUN
+  // ============================================
+  {
+    id: "low-poly-animal",
+    name: "Low Poly Animal",
+    description: "Decorative low-poly style animal sculpture. Modern geometric design.",
+    category: "decoration",
+    difficulty: "easy",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PLA",
+    icon: "🦊",
+    tags: ["low-poly", "decoration", "animal", "sculpture", "geometric"],
+    dimensions: { width: 60, depth: 80, height: 70 },
+    parameters: [
+      { name: "scale", type: "number", default: 1, min: 0.5, max: 2, step: 0.25, label: "Scale" },
+      { name: "animal", type: "number", default: 0, min: 0, max: 3, step: 1, label: "Animal (0=fox, 1=cat, 2=owl, 3=bunny)" }
+    ],
+    notes: [
+      "Best in matte filaments",
+      "No supports needed",
+      "Multi-color possible with pauses"
+    ],
+    code: `function main(params) {
+  const { scale = 1, animal = 0 } = params;
+
+  // Create a simple low-poly fox shape
+  // Body - elongated octagon
+  let body = cylinder({ radius: 20 * scale, height: 50 * scale, segments: 8 });
+  body = translate([0, 0, 30 * scale], body);
+  body = rotateX(degToRad(-20), body);
+
+  // Head - octagon
+  let head = cylinder({ radius: 15 * scale, height: 20 * scale, segments: 8 });
+  head = translate([0, 30 * scale, 50 * scale], head);
+
+  // Snout - pyramid-ish
+  let snout = cylinder({ radius: 8 * scale, height: 15 * scale, segments: 4 });
+  snout = rotateX(degToRad(90), snout);
+  snout = translate([0, 45 * scale, 45 * scale], snout);
+
+  // Ears - triangular prisms
+  let ear1 = cylinder({ radius: 8 * scale, height: 15 * scale, segments: 3 });
+  ear1 = translate([-10 * scale, 25 * scale, 65 * scale], ear1);
+
+  let ear2 = cylinder({ radius: 8 * scale, height: 15 * scale, segments: 3 });
+  ear2 = translate([10 * scale, 25 * scale, 65 * scale], ear2);
+
+  // Tail - tapered cylinder
+  let tail = cylinder({
+    radius: 10 * scale,
+    height: 35 * scale,
+    segments: 6
+  });
+  tail = rotateX(degToRad(45), tail);
+  tail = translate([0, -35 * scale, 25 * scale], tail);
+
+  // Legs
+  let legs = [];
+  for (const [x, y] of [[12, 15], [-12, 15], [12, -10], [-12, -10]]) {
+    let leg = cylinder({ radius: 5 * scale, height: 25 * scale, segments: 6 });
+    leg = translate([x * scale, y * scale, 12.5 * scale], leg);
+    legs.push(leg);
+  }
+
+  return union(body, head, snout, ear1, ear2, tail, ...legs);
+}`,
+  },
+  {
+    id: "geometric-planter",
+    name: "Geometric Planter",
+    description: "Modern geometric planter with drainage. Perfect for succulents and small plants.",
+    category: "decoration",
+    difficulty: "easy",
+    estimatedPrintTime: "3h",
+    printTime: "3h",
+    material: "PETG",
+    icon: "🪴",
+    tags: ["planter", "geometric", "succulent", "garden", "modern"],
+    dimensions: { width: 100, depth: 100, height: 80 },
+    parameters: [
+      { name: "size", type: "number", default: 100, min: 60, max: 150, step: 10, label: "Size (mm)" },
+      { name: "sides", type: "number", default: 6, min: 3, max: 12, step: 1, label: "Number of Sides" },
+      { name: "drainage", type: "boolean", default: true, label: "Drainage Holes" },
+      { name: "saucer", type: "boolean", default: true, label: "Include Saucer" }
+    ],
+    notes: [
+      "PETG for water resistance",
+      "Drainage holes prevent root rot",
+      "Matching saucer catches water"
+    ],
+    code: `function main(params) {
+  const { size = 100, sides = 6, drainage = true, saucer = true } = params;
+
+  const radius = size / 2;
+  const height = size * 0.8;
+  const wall = 4;
+
+  // Outer shell
+  let planter = cylinder({ radius: radius, height: height, segments: sides });
+  planter = translate([0, 0, height/2], planter);
+
+  // Inner cavity
+  let inner = cylinder({
+    radius: radius - wall,
+    height: height - wall,
+    segments: sides
+  });
+  inner = translate([0, 0, height/2 + wall/2], inner);
+  planter = subtract(planter, inner);
+
+  // Drainage holes
+  if (drainage) {
+    const holeRadius = 5;
+    for (let i = 0; i < Math.min(sides, 5); i++) {
+      const angle = (i * 360 / Math.min(sides, 5)) * Math.PI / 180;
+      const x = Math.cos(angle) * (radius * 0.4);
+      const y = Math.sin(angle) * (radius * 0.4);
+      let hole = cylinder({ radius: holeRadius, height: wall * 2, segments: 16 });
+      hole = translate([x, y, wall/2], hole);
+      planter = subtract(planter, hole);
+    }
+    // Center hole
+    let centerHole = cylinder({ radius: holeRadius, height: wall * 2, segments: 16 });
+    centerHole = translate([0, 0, wall/2], centerHole);
+    planter = subtract(planter, centerHole);
+  }
+
+  // Saucer
+  if (saucer) {
+    let saucerOuter = cylinder({ radius: radius + 5, height: 12, segments: sides });
+    let saucerInner = cylinder({ radius: radius + 2, height: 10, segments: sides });
+    saucerInner = translate([0, 0, 2], saucerInner);
+    let saucerPart = subtract(saucerOuter, saucerInner);
+    saucerPart = translate([0, 0, 6], saucerPart);
+
+    // Place saucer next to planter for printing
+    saucerPart = translate([size + 15, 0, 0], saucerPart);
+    planter = union(planter, saucerPart);
+  }
+
+  return planter;
+}`,
+  },
+  {
+    id: "phone-amplifier",
+    name: "Passive Phone Amplifier",
+    description: "Acoustic phone speaker amplifier. No batteries needed - pure physics!",
+    category: "functional",
+    difficulty: "medium",
+    estimatedPrintTime: "3h",
+    printTime: "3h",
+    material: "PLA",
+    icon: "🔊",
+    tags: ["phone", "speaker", "amplifier", "acoustic", "passive"],
+    dimensions: { width: 150, depth: 80, height: 100 },
+    parameters: [
+      { name: "phoneWidth", type: "number", default: 75, min: 65, max: 90, step: 5, label: "Phone Width (mm)" },
+      { name: "phoneThickness", type: "number", default: 10, min: 7, max: 15, step: 1, label: "Phone Thickness (mm)" },
+      { name: "hornLength", type: "number", default: 100, min: 80, max: 150, step: 10, label: "Horn Length (mm)" }
+    ],
+    notes: [
+      "Horn shape amplifies sound naturally",
+      "Phone speaker should face down into slot",
+      "Great for parties and camping"
+    ],
+    code: `function main(params) {
+  const { phoneWidth = 75, phoneThickness = 10, hornLength = 100 } = params;
+
+  const slotWidth = phoneWidth + 4;
+  const slotDepth = phoneThickness + 3;
+  const bodyHeight = 60;
+  const hornHeight = 50;
+
+  // Main body with phone slot
+  let body = cuboid({ size: [slotWidth + 20, 60, bodyHeight] });
+  body = translate([0, 0, bodyHeight/2], body);
+
+  // Phone slot
+  let slot = cuboid({ size: [slotWidth, slotDepth, bodyHeight/2 + 10] });
+  slot = translate([0, 0, bodyHeight/2 + 10], slot);
+  body = subtract(body, slot);
+
+  // Sound channel (internal)
+  let channel = cuboid({ size: [40, 30, bodyHeight - 10] });
+  channel = translate([0, 0, (bodyHeight - 10)/2 + 5], channel);
+  body = subtract(body, channel);
+
+  // Horn sections (expanding outward)
+  const hornSections = 5;
+  for (let i = 0; i < hornSections; i++) {
+    const progress = i / hornSections;
+    const sectionW = 40 + progress * 60;
+    const sectionH = 30 + progress * 40;
+    const yPos = -30 - i * (hornLength / hornSections);
+
+    let section = cuboid({ size: [sectionW, hornLength / hornSections + 2, sectionH] });
+    let sectionInner = cuboid({ size: [sectionW - 4, hornLength / hornSections + 4, sectionH - 4] });
+    section = subtract(section, sectionInner);
+    section = translate([0, yPos - hornLength/(hornSections*2), sectionH/2], section);
+    body = union(body, section);
+  }
+
+  // Exit flare
+  let flare = cylinder({ radius: 50, height: 8, segments: 32 });
+  flare = rotateX(Math.PI/2, flare);
+  flare = translate([0, -30 - hornLength, 45], flare);
+
+  let flareInner = cylinder({ radius: 46, height: 10, segments: 32 });
+  flareInner = rotateX(Math.PI/2, flareInner);
+  flareInner = translate([0, -30 - hornLength, 45], flareInner);
+  flare = subtract(flare, flareInner);
+
+  body = union(body, flare);
+
+  return body;
+}`,
+  },
+  {
+    id: "keychain-name",
+    name: "Custom Name Keychain",
+    description: "Personalized keychain with your name. Add your own text!",
+    category: "decoration",
+    difficulty: "easy",
+    estimatedPrintTime: "15 min",
+    printTime: "15 min",
+    material: "PLA",
+    icon: "🔑",
+    tags: ["keychain", "custom", "name", "personalized", "gift"],
+    dimensions: { width: 60, depth: 20, height: 8 },
+    parameters: [
+      { name: "length", type: "number", default: 60, min: 40, max: 100, step: 10, label: "Length (mm)" },
+      { name: "height", type: "number", default: 20, min: 15, max: 30, step: 5, label: "Height (mm)" },
+      { name: "thickness", type: "number", default: 4, min: 3, max: 6, step: 1, label: "Thickness (mm)" },
+      { name: "ringHole", type: "number", default: 5, min: 3, max: 8, step: 1, label: "Ring Hole (mm)" }
+    ],
+    notes: [
+      "Text added via slicer or embossed",
+      "Rounded corners for comfort",
+      "Multi-color for contrast"
+    ],
+    code: `function main(params) {
+  const { length = 60, height = 20, thickness = 4, ringHole = 5 } = params;
+
+  const cornerRadius = height / 4;
+
+  // Main body with rounded ends
+  let body = cuboid({ size: [length - height, height, thickness] });
+  body = translate([0, 0, thickness/2], body);
+
+  // Rounded ends
+  let leftCap = cylinder({ radius: height/2, height: thickness, segments: 32 });
+  leftCap = translate([-length/2 + height/2, 0, thickness/2], leftCap);
+
+  let rightCap = cylinder({ radius: height/2, height: thickness, segments: 32 });
+  rightCap = translate([length/2 - height/2, 0, thickness/2], rightCap);
+
+  let keychain = union(body, leftCap, rightCap);
+
+  // Keyring hole
+  let hole = cylinder({ radius: ringHole, height: thickness * 2, segments: 24 });
+  hole = translate([-length/2 + height/2 + 2, 0, thickness/2], hole);
+  keychain = subtract(keychain, hole);
+
+  // Text placeholder area (raised)
+  let textArea = cuboid({ size: [length - height - 10, height - 6, 1] });
+  textArea = translate([5, 0, thickness + 0.5], textArea);
+  keychain = union(keychain, textArea);
+
+  return keychain;
+}`,
+  },
+  {
+    id: "wall-art-honeycomb",
+    name: "Honeycomb Wall Art",
+    description: "Modular honeycomb wall decoration. Arrange multiple pieces for larger displays.",
+    category: "decoration",
+    difficulty: "easy",
+    estimatedPrintTime: "1h",
+    printTime: "1h",
+    material: "PLA",
+    icon: "🐝",
+    tags: ["wall-art", "honeycomb", "decoration", "modular", "geometric"],
+    dimensions: { width: 100, depth: 10, height: 115 },
+    parameters: [
+      { name: "size", type: "number", default: 50, min: 30, max: 80, step: 10, label: "Hexagon Size (mm)" },
+      { name: "depth", type: "number", default: 10, min: 5, max: 20, step: 5, label: "Depth (mm)" },
+      { name: "cells", type: "number", default: 3, min: 1, max: 7, step: 1, label: "Number of Cells" },
+      { name: "border", type: "number", default: 3, min: 2, max: 5, step: 1, label: "Border Width (mm)" }
+    ],
+    notes: [
+      "Print flat or on edge",
+      "Combine multiple for larger art",
+      "3M strips for hanging"
+    ],
+    code: `function main(params) {
+  const { size = 50, depth = 10, cells = 3, border = 3 } = params;
+
+  const hexHeight = size * Math.sqrt(3);
+  const spacing = size * 1.5;
+  let pieces = [];
+
+  // Create honeycomb pattern
+  for (let i = 0; i < cells; i++) {
+    const row = Math.floor(i / 2);
+    const col = i % 2;
+    const xOffset = col * spacing;
+    const yOffset = row * hexHeight + (col * hexHeight / 2);
+
+    // Outer hexagon
+    let hex = cylinder({ radius: size, height: depth, segments: 6 });
+
+    // Inner cavity
+    let hexInner = cylinder({ radius: size - border, height: depth - 2, segments: 6 });
+    hexInner = translate([0, 0, 2], hexInner);
+
+    hex = subtract(hex, hexInner);
+    hex = translate([xOffset, yOffset, depth/2], hex);
+    pieces.push(hex);
+  }
+
+  // Back plate to connect cells
+  const totalWidth = spacing + size * 2;
+  const totalHeight = Math.ceil(cells / 2) * hexHeight + size;
+
+  let backPlate = cuboid({ size: [totalWidth, totalHeight, 2] });
+  backPlate = translate([spacing/2, totalHeight/2 - size/2, 1], backPlate);
+
+  return union(...pieces, backPlate);
+}`,
+  },
 ]
 
 export const CATEGORIES = [
