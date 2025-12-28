@@ -171,6 +171,8 @@ interface TemplateCardProps {
 }
 
 function TemplateCard({ template, loading, featured, onCustomize }: TemplateCardProps) {
+  const [imageError, setImageError] = useState(false)
+
   return (
     <Card
       className={`border-gray-800 transition-all duration-300 cursor-pointer group ${
@@ -182,13 +184,25 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
       <CardContent className="p-3 sm:p-4">
         {/* Preview */}
         <div className="aspect-square rounded-lg overflow-hidden mb-3 sm:mb-4 relative bg-gradient-to-br from-gray-800 to-gray-900">
-          <Image
-            src={`/templates/${template.id}.png`}
-            alt={template.name}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          />
+          {imageError ? (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500/10 to-purple-500/10">
+              <div className="text-center p-4">
+                <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                  <Library className="w-6 h-6 text-cyan-400" />
+                </div>
+                <p className="text-xs text-gray-500">Preview</p>
+              </div>
+            </div>
+          ) : (
+            <Image
+              src={`/templates/${template.id}.png`}
+              alt={template.name}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              onError={() => setImageError(true)}
+            />
+          )}
           {featured && (
             <div className="absolute top-2 right-2 z-10">
               <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 fill-yellow-400" />
