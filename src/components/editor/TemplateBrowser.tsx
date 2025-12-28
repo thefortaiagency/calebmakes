@@ -282,14 +282,9 @@ export default function TemplateBrowser() {
       setError(null)
 
       try {
-        let code = template.code
-
-        for (const param of template.parameters) {
-          if (param.type === "number") {
-            const regex = new RegExp(`initial:\\s*${param.default}([,\\s\\}])`, "g")
-            code = code.replace(regex, `initial: ${params[param.name]}$1`)
-          }
-        }
+        // Use the template code as-is - don't modify it
+        // The params are passed directly to the JSCAD compiler
+        const code = template.code
 
         setCode(code)
 
