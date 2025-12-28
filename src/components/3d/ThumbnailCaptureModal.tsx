@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { X, Camera, Loader2, Check, Image as ImageIcon } from "lucide-react"
+import { X, Camera, Loader2, Check, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import dynamic from "next/dynamic"
 import type { GeometryData } from "@/lib/types"
@@ -32,6 +32,7 @@ export default function ThumbnailCaptureModal({
 }: ThumbnailCaptureModalProps) {
   const [isCapturing, setIsCapturing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
 
@@ -41,6 +42,7 @@ export default function ThumbnailCaptureModal({
       setPreviewUrl(null)
       setIsCapturing(false)
       setIsSaving(false)
+      setError(null)
     }
   }, [isOpen])
 
@@ -72,11 +74,13 @@ export default function ThumbnailCaptureModal({
   const handleSave = async () => {
     if (previewUrl) {
       setIsSaving(true)
+      setError(null)
       try {
         await onCapture(previewUrl)
         onClose()
       } catch (err) {
         console.error("Failed to save:", err)
+        setError(err instanceof Error ? err.message : "Failed to save thumbnail")
         setIsSaving(false)
       }
     }
@@ -127,6 +131,12 @@ export default function ThumbnailCaptureModal({
           <p className="text-xs text-gray-500 mt-3 text-center">
             Wait for the model to render, then capture when ready
           </p>
+          {error && (
+            <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
         </div>
 
         {/* Actions */}

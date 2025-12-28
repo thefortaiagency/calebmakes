@@ -186,44 +186,43 @@ export default function LibraryPage() {
 
   // Handle thumbnail captured and upload
   const handleThumbnailCaptured = async (imageData: string) => {
-    if (!capturingTemplate) return
+    if (!capturingTemplate) {
+      throw new Error("No template selected")
+    }
 
     const templateId = capturingTemplate.id
 
-    try {
-      // Convert base64 to blob
-      const base64Data = imageData.replace(/^data:image\/png;base64,/, "")
-      const byteCharacters = atob(base64Data)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
-      const byteArray = new Uint8Array(byteNumbers)
-      const blob = new Blob([byteArray], { type: "image/png" })
-
-      // Upload via API endpoint
-      const formData = new FormData()
-      formData.append("file", blob, `${templateId}.png`)
-      formData.append("templateId", templateId)
-
-      const response = await fetch("/api/thumbnails/upload", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Upload failed")
-      }
-
-      const { url } = await response.json()
-
-      // Update local state to show new thumbnail
-      setThumbnailUrls(prev => ({ ...prev, [templateId]: url }))
-    } catch (err) {
-      console.error("Failed to save thumbnail:", err)
-      setError(err instanceof Error ? err.message : "Failed to save thumbnail")
+    // Convert base64 to blob
+    const base64Data = imageData.replace(/^data:image\/png;base64,/, "")
+    const byteCharacters = atob(base64Data)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
     }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: "image/png" })
+
+    // Upload via API endpoint
+    const formData = new FormData()
+    formData.append("file", blob, `${templateId}.png`)
+    formData.append("templateId", templateId)
+
+    const response = await fetch("/api/thumbnails/upload", {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      const errorMessage = errorData.error || "Upload failed"
+      console.error("Thumbnail upload failed:", errorMessage)
+      throw new Error(errorMessage)
+    }
+
+    const { url } = await response.json()
+
+    // Update local state to show new thumbnail
+    setThumbnailUrls(prev => ({ ...prev, [templateId]: url }))
   }
 
 
