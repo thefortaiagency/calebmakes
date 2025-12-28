@@ -52,15 +52,19 @@ export default function HomePage() {
 
         <div className="relative px-8 py-12">
           <div className="max-w-4xl">
-            <div className="flex items-center gap-4 mb-4">
-              <Image
-                src="/calebmakeslogo.png"
-                alt="CalebMakes Logo"
-                width={64}
-                height={64}
-                className="object-contain"
-              />
-              <h1 className="text-4xl font-bold">
+            <div className="flex items-center gap-5 mb-6">
+              {/* Logo with glow effect */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-cyan-400/40 blur-xl rounded-full scale-150" />
+                <Image
+                  src="/calebmakeslogo.png"
+                  alt="CalebMakes Logo"
+                  width={80}
+                  height={80}
+                  className="relative object-contain drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]"
+                />
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold">
                 Welcome to{" "}
                 <span className="bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
                   CalebMakes

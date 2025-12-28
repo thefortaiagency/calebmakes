@@ -39,37 +39,47 @@ export default function Sidebar() {
       )}
     >
       {/* Logo */}
-      <div className="flex items-center justify-between h-16 px-4 border-b border-gray-800">
+      <div className="relative flex items-center justify-between h-16 px-4 border-b border-gray-800 bg-gradient-to-r from-cyan-500/5 via-purple-500/5 to-transparent">
+        {/* Subtle glow overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/10 via-transparent to-transparent pointer-events-none" />
+
         {!collapsed && (
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/calebmakeslogo.png"
-              alt="CalebMakes"
-              width={32}
-              height={32}
-              className="object-contain"
-            />
+          <Link href="/" className="relative flex items-center gap-3 group">
+            {/* Logo with glow effect */}
+            <div className="relative">
+              <div className="absolute inset-0 bg-cyan-400/30 blur-lg rounded-full scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <Image
+                src="/calebmakeslogo.png"
+                alt="CalebMakes"
+                width={36}
+                height={36}
+                className="relative object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.4)] group-hover:drop-shadow-[0_0_12px_rgba(34,211,238,0.6)] transition-all duration-300"
+              />
+            </div>
             <span className="font-bold text-lg bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
               CalebMakes
             </span>
           </Link>
         )}
         {collapsed && (
-          <Link href="/" className="flex items-center justify-center w-full">
-            <Image
-              src="/calebmakeslogo.png"
-              alt="CalebMakes"
-              width={32}
-              height={32}
-              className="object-contain"
-            />
+          <Link href="/" className="relative flex items-center justify-center w-full group">
+            <div className="relative">
+              <div className="absolute inset-0 bg-cyan-400/30 blur-lg rounded-full scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <Image
+                src="/calebmakeslogo.png"
+                alt="CalebMakes"
+                width={36}
+                height={36}
+                className="relative object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.4)] group-hover:drop-shadow-[0_0_12px_rgba(34,211,238,0.6)] transition-all duration-300"
+              />
+            </div>
           </Link>
         )}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="text-gray-400 hover:text-white"
+          className="relative text-gray-400 hover:text-white z-10"
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </Button>
