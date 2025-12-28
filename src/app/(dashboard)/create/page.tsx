@@ -327,7 +327,7 @@ export default function CreatePage() {
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left Panel Toggle (when collapsed) */}
         {!showLeftPanel && (
           <button
@@ -468,7 +468,7 @@ export default function CreatePage() {
         </div>
 
         {/* Center - 3D Viewer */}
-        <div className={`flex-1 flex flex-col relative ${mobileShowViewer ? 'flex' : 'hidden lg:flex'}`}>
+        <div className={`flex-1 min-w-0 overflow-hidden flex flex-col relative ${mobileShowViewer ? 'flex' : 'hidden lg:flex'}`}>
           {/* Mobile: Back Button */}
           <button
             onClick={() => setMobileShowViewer(false)}
@@ -556,8 +556,12 @@ export default function CreatePage() {
         {/* Right Panel - Print Analysis */}
         {showAnalysis && (
           <div
-            className={`flex-shrink-0 border-l border-gray-800 bg-gray-900/50 hidden lg:flex lg:flex-col transition-all duration-200`}
-            style={{ width: analysisWidth === "full" ? 500 : analysisWidth === "wide" ? 384 : 320 }}
+            className="border-l border-gray-800 bg-gray-900/50 hidden lg:flex lg:flex-col transition-all duration-200 overflow-hidden"
+            style={{
+              width: analysisWidth === "full" ? 550 : analysisWidth === "wide" ? 420 : 300,
+              minWidth: analysisWidth === "full" ? 550 : analysisWidth === "wide" ? 420 : 300,
+              flexShrink: 0
+            }}
           >
             <div className="flex items-center justify-between p-3 border-b border-gray-800">
               <div className="flex items-center gap-2">

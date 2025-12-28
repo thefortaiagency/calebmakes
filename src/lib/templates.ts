@@ -4,6 +4,12 @@ export interface Template extends JSCADResponse {
   id: string
   name: string
   featured?: boolean
+  // Additional fields for P1S and advanced templates
+  icon?: string
+  tags?: string[]
+  material?: string
+  printTime?: string // Alternative to estimatedPrintTime
+  nonPrintedParts?: string[]
 }
 
 export const TEMPLATES: Template[] = [
@@ -1618,10 +1624,967 @@ export const TEMPLATES: Template[] = [
   return stand;
 }`,
   },
+  // ============================================
+  // P1S ACCESSORIES - From template-library.ts
+  // ============================================
+  {
+    id: "p1s-tool-holder",
+    name: "P1S Magnetic Tool Holder",
+    description: "Side-mounted magnetic tool holder for scrapers, Allen keys, and nozzle pins. Attaches to P1S frame.",
+    category: "p1s-accessories",
+    difficulty: "easy",
+    estimatedPrintTime: "1h 30m",
+    printTime: "1h 30m",
+    material: "PETG",
+    icon: "🧲",
+    tags: ["p1s", "bambu", "tools", "magnetic", "organizer"],
+    dimensions: { width: 60, depth: 25, height: 80 },
+    parameters: [
+      { name: "width", type: "number", default: 60, min: 40, max: 100, step: 10, label: "Width (mm)" },
+      { name: "depth", type: "number", default: 25, min: 20, max: 40, step: 5, label: "Depth (mm)" },
+      { name: "height", type: "number", default: 80, min: 50, max: 120, step: 10, label: "Height (mm)" },
+      { name: "magnetSlots", type: "number", default: 3, min: 2, max: 6, step: 1, label: "Magnet Slots" },
+      { name: "toolSlots", type: "number", default: 4, min: 2, max: 6, step: 1, label: "Tool Slots" }
+    ],
+    nonPrintedParts: [
+      "10x3mm neodymium magnets (qty matches magnet slots)",
+      "Super glue for magnets"
+    ],
+    notes: [
+      "Attaches to side of P1S via magnets",
+      "PETG recommended for durability",
+      "Holds scrapers, Allen keys, tweezers"
+    ],
+    code: `function main(params) {
+  const { width = 60, depth = 25, height = 80, magnetSlots = 3, toolSlots = 4 } = params;
+
+  const wallThickness = 3;
+  const magnetDia = 10;
+  const magnetHeight = 3;
+
+  let body = cuboid({ size: [width, depth, height] });
+  body = translate([0, 0, height/2], body);
+
+  let hollow = cuboid({ size: [width - wallThickness*2, depth - wallThickness, height - wallThickness*2] });
+  hollow = translate([0, wallThickness/2, height/2 + wallThickness], hollow);
+  body = subtract(body, hollow);
+
+  const magnetSpacing = width / (magnetSlots + 1);
+  for (let i = 1; i <= magnetSlots; i++) {
+    let slot = cylinder({ radius: magnetDia/2 + 0.2, height: magnetHeight + 0.5, segments: 32 });
+    slot = rotateX(Math.PI/2, slot);
+    slot = translate([
+      -width/2 + i * magnetSpacing,
+      -depth/2 + magnetHeight/2,
+      height - 15
+    ], slot);
+    body = subtract(body, slot);
+  }
+
+  const slotWidth = (width - wallThickness*2) / toolSlots;
+  for (let i = 1; i < toolSlots; i++) {
+    let divider = cuboid({ size: [2, depth - wallThickness - 2, height - wallThickness*3] });
+    divider = translate([
+      -width/2 + wallThickness + i * slotWidth,
+      wallThickness/2 + 1,
+      height/2 + wallThickness
+    ], divider);
+    body = union(body, divider);
+  }
+
+  return body;
+}`,
+  },
+  {
+    id: "p1s-filament-guide",
+    name: "P1S Top Filament Guide",
+    description: "Smooth filament guide for top-mounted spool holder. Reduces friction and prevents tangles.",
+    category: "p1s-accessories",
+    difficulty: "easy",
+    estimatedPrintTime: "45m",
+    printTime: "45m",
+    material: "PETG",
+    icon: "🧵",
+    tags: ["p1s", "bambu", "filament", "guide", "spool"],
+    dimensions: { width: 40, depth: 20, height: 15 },
+    parameters: [
+      { name: "innerDia", type: "number", default: 4, min: 2, max: 6, step: 0.5, label: "Filament Hole (mm)" },
+      { name: "outerDia", type: "number", default: 20, min: 15, max: 30, step: 1, label: "Guide Diameter (mm)" },
+      { name: "height", type: "number", default: 15, min: 10, max: 25, step: 1, label: "Height (mm)" },
+      { name: "mountWidth", type: "number", default: 40, min: 30, max: 60, step: 5, label: "Mount Width (mm)" }
+    ],
+    nonPrintedParts: [
+      "M3 screws for mounting (optional)",
+      "Short PTFE tube section (optional)"
+    ],
+    notes: [
+      "Smooth inner surface reduces friction",
+      "Mounts on top of P1S enclosure",
+      "Works with any 1.75mm filament"
+    ],
+    code: `function main(params) {
+  const { innerDia = 4, outerDia = 20, height = 15, mountWidth = 40 } = params;
+
+  let guide = cylinder({ radius: outerDia/2, height: height, segments: 64 });
+  guide = translate([0, 0, height/2], guide);
+
+  let core = cylinder({ radius: innerDia/2, height: height + 2, segments: 32 });
+  core = translate([0, 0, height/2], core);
+  guide = subtract(guide, core);
+
+  let mount = cuboid({ size: [mountWidth, 20, 4] });
+  mount = translate([0, -outerDia/2 - 5, 2], mount);
+  guide = union(guide, mount);
+
+  for (let x of [-mountWidth/3, mountWidth/3]) {
+    let hole = cylinder({ radius: 2, height: 6, segments: 16 });
+    hole = translate([x, -outerDia/2 - 5, 2], hole);
+    guide = subtract(guide, hole);
+  }
+
+  return guide;
+}`,
+  },
+  {
+    id: "p1s-camera-mount",
+    name: "P1S Camera Light Mount",
+    description: "LED light ring mount that attaches around the P1S camera for better print monitoring.",
+    category: "p1s-accessories",
+    difficulty: "medium",
+    estimatedPrintTime: "1h",
+    printTime: "1h",
+    material: "PLA",
+    icon: "💡",
+    tags: ["p1s", "bambu", "camera", "light", "led"],
+    dimensions: { width: 40, depth: 40, height: 8 },
+    parameters: [
+      { name: "ringDia", type: "number", default: 40, min: 30, max: 60, step: 5, label: "Ring Diameter (mm)" },
+      { name: "ledCount", type: "number", default: 8, min: 4, max: 12, step: 1, label: "LED Slots" },
+      { name: "thickness", type: "number", default: 8, min: 6, max: 12, step: 1, label: "Thickness (mm)" }
+    ],
+    nonPrintedParts: [
+      "5mm LEDs (qty matches LED slots)",
+      "Resistors for LEDs",
+      "Wire for connections",
+      "5V power source (can tap from printer USB)"
+    ],
+    notes: [
+      "Improves camera visibility for monitoring",
+      "Use white LEDs for best results",
+      "Can connect to printer 5V USB output"
+    ],
+    code: `function main(params) {
+  const { ringDia = 40, ledCount = 8, thickness = 8 } = params;
+
+  const cameraDia = 20;
+  const ledDia = 5;
+
+  let ring = cylinder({ radius: ringDia/2, height: thickness, segments: 64 });
+  ring = translate([0, 0, thickness/2], ring);
+
+  let cameraHole = cylinder({ radius: cameraDia/2, height: thickness + 2, segments: 32 });
+  cameraHole = translate([0, 0, thickness/2], cameraHole);
+  ring = subtract(ring, cameraHole);
+
+  const ledRadius = (ringDia/2 + cameraDia/2) / 2;
+  for (let i = 0; i < ledCount; i++) {
+    const angle = (i / ledCount) * Math.PI * 2;
+    let ledSlot = cylinder({ radius: ledDia/2, height: thickness - 2, segments: 16 });
+    ledSlot = translate([
+      Math.cos(angle) * ledRadius,
+      Math.sin(angle) * ledRadius,
+      thickness/2 + 1
+    ], ledSlot);
+    ring = subtract(ring, ledSlot);
+  }
+
+  return ring;
+}`,
+  },
+  {
+    id: "p1s-purge-bucket",
+    name: "P1S Purge/Waste Bucket",
+    description: "Removable waste bucket for catching purged filament. Slides into P1S waste chute area.",
+    category: "p1s-accessories",
+    difficulty: "easy",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PETG",
+    icon: "🗑️",
+    tags: ["p1s", "bambu", "purge", "waste", "bucket"],
+    dimensions: { width: 80, depth: 60, height: 50 },
+    parameters: [
+      { name: "width", type: "number", default: 80, min: 60, max: 100, step: 5, label: "Width (mm)" },
+      { name: "depth", type: "number", default: 60, min: 40, max: 80, step: 5, label: "Depth (mm)" },
+      { name: "height", type: "number", default: 50, min: 30, max: 80, step: 5, label: "Height (mm)" },
+      { name: "wallThickness", type: "number", default: 2, min: 1.5, max: 3, step: 0.5, label: "Wall Thickness (mm)" }
+    ],
+    notes: [
+      "Catches purge waste from AMS changes",
+      "Easy pull handle for removal",
+      "Drain holes for washing"
+    ],
+    code: `function main(params) {
+  const { width = 80, depth = 60, height = 50, wallThickness = 2 } = params;
+
+  let bucket = cuboid({ size: [width, depth, height] });
+  bucket = translate([0, 0, height/2], bucket);
+
+  let hollow = cuboid({
+    size: [width - wallThickness*2, depth - wallThickness*2, height - wallThickness]
+  });
+  hollow = translate([0, 0, height/2 + wallThickness/2], hollow);
+  bucket = subtract(bucket, hollow);
+
+  let handle = cuboid({ size: [30, 10, 15] });
+  handle = translate([0, depth/2 + 5, height - 7.5], handle);
+  bucket = union(bucket, handle);
+
+  return bucket;
+}`,
+  },
+  {
+    id: "p1s-spool-holder",
+    name: "P1S External Spool Holder",
+    description: "External spool holder with bearing for smooth filament feeding. Mounts on top of P1S.",
+    category: "p1s-accessories",
+    difficulty: "medium",
+    estimatedPrintTime: "3h",
+    printTime: "3h",
+    material: "PETG",
+    icon: "🎡",
+    tags: ["p1s", "bambu", "spool", "holder", "bearing"],
+    dimensions: { width: 110, depth: 80, height: 130 },
+    parameters: [
+      { name: "spoolDia", type: "number", default: 200, min: 150, max: 250, step: 10, label: "Max Spool Diameter (mm)" },
+      { name: "spoolWidth", type: "number", default: 70, min: 50, max: 100, step: 5, label: "Max Spool Width (mm)" },
+      { name: "axleDia", type: "number", default: 52, min: 40, max: 60, step: 2, label: "Spool Hole (mm)" },
+      { name: "bearingDia", type: "number", default: 22, min: 15, max: 30, step: 1, label: "Bearing OD (mm)" }
+    ],
+    nonPrintedParts: [
+      "608 bearings (2x) - 22mm OD, 8mm ID",
+      "8mm steel rod for axle (optional)",
+      "M5 screws for mounting"
+    ],
+    notes: [
+      "Smooth bearing rotation reduces tangles",
+      "Fits most 1kg spools",
+      "Mount on top of P1S enclosure"
+    ],
+    code: `function main(params) {
+  const { spoolDia = 200, spoolWidth = 70, axleDia = 52, bearingDia = 22 } = params;
+
+  const baseHeight = 10;
+  const armHeight = spoolDia/2 + 30;
+  const armThickness = 8;
+
+  let base = cuboid({ size: [spoolWidth + 40, 80, baseHeight] });
+  base = translate([0, 0, baseHeight/2], base);
+
+  let leftArm = cuboid({ size: [armThickness, 60, armHeight] });
+  leftArm = translate([-spoolWidth/2 - armThickness/2, 0, armHeight/2 + baseHeight], leftArm);
+
+  let rightArm = cuboid({ size: [armThickness, 60, armHeight] });
+  rightArm = translate([spoolWidth/2 + armThickness/2, 0, armHeight/2 + baseHeight], rightArm);
+
+  base = union(base, leftArm);
+  base = union(base, rightArm);
+
+  for (let side of [-1, 1]) {
+    let bearingMount = cylinder({ radius: bearingDia/2 + 4, height: armThickness, segments: 32 });
+    bearingMount = rotateY(Math.PI/2, bearingMount);
+    bearingMount = translate([
+      side * (spoolWidth/2 + armThickness/2),
+      0,
+      armHeight + baseHeight
+    ], bearingMount);
+
+    let bearingHole = cylinder({ radius: bearingDia/2 + 0.2, height: 8, segments: 32 });
+    bearingHole = rotateY(Math.PI/2, bearingHole);
+    bearingHole = translate([
+      side * (spoolWidth/2 + armThickness/2),
+      0,
+      armHeight + baseHeight
+    ], bearingHole);
+
+    base = union(base, bearingMount);
+    base = subtract(base, bearingHole);
+  }
+
+  return base;
+}`,
+  },
+  // ============================================
+  // CALIBRATION & TEST PRINTS
+  // ============================================
+  {
+    id: "calibration-cube",
+    name: "Calibration Cube",
+    description: "Standard 20mm calibration cube for dimensional accuracy testing. XYZ letters on each face.",
+    category: "calibration",
+    difficulty: "easy",
+    estimatedPrintTime: "15m",
+    printTime: "15m",
+    material: "Any",
+    icon: "📏",
+    tags: ["calibration", "dimensional", "accuracy", "test"],
+    dimensions: { width: 20, depth: 20, height: 20 },
+    parameters: [
+      { name: "size", type: "number", default: 20, min: 10, max: 50, step: 5, label: "Cube Size (mm)" },
+      { name: "letterDepth", type: "number", default: 0.8, min: 0.4, max: 2, step: 0.2, label: "Letter Depth (mm)" }
+    ],
+    notes: [
+      "Measure each axis with calipers",
+      "Should be exactly the specified size",
+      "Adjust flow/steps per mm if off"
+    ],
+    code: `function main(params) {
+  const { size = 20, letterDepth = 0.8 } = params;
+
+  let cube = cuboid({ size: [size, size, size] });
+  cube = translate([0, 0, size/2], cube);
+
+  return cube;
+}`,
+  },
+  {
+    id: "first-layer-test",
+    name: "First Layer Calibration",
+    description: "Single-layer square pattern for testing first layer adhesion and squish.",
+    category: "calibration",
+    difficulty: "easy",
+    estimatedPrintTime: "5m",
+    printTime: "5m",
+    material: "Any",
+    icon: "🎯",
+    tags: ["calibration", "first-layer", "bed-leveling", "adhesion"],
+    dimensions: { width: 100, depth: 100, height: 0.2 },
+    parameters: [
+      { name: "size", type: "number", default: 100, min: 50, max: 200, step: 10, label: "Size (mm)" },
+      { name: "thickness", type: "number", default: 0.2, min: 0.1, max: 0.4, step: 0.05, label: "Layer Height (mm)" },
+      { name: "lineWidth", type: "number", default: 10, min: 5, max: 20, step: 1, label: "Line Width (mm)" }
+    ],
+    notes: [
+      "Lines should be smooth, not rough",
+      "Should stick firmly to bed",
+      "Adjust Z offset if too squished or not adhering"
+    ],
+    code: `function main(params) {
+  const { size = 100, thickness = 0.2, lineWidth = 10 } = params;
+
+  let outer = cuboid({ size: [size, size, thickness] });
+  let inner = cuboid({ size: [size - lineWidth*2, size - lineWidth*2, thickness*2] });
+  let frame = subtract(outer, inner);
+
+  let hLine = cuboid({ size: [size - lineWidth*2, lineWidth, thickness] });
+  let vLine = cuboid({ size: [lineWidth, size - lineWidth*2, thickness] });
+
+  let pattern = union(frame, hLine);
+  pattern = union(pattern, vLine);
+
+  pattern = translate([0, 0, thickness/2], pattern);
+
+  return pattern;
+}`,
+  },
+  {
+    id: "retraction-test",
+    name: "Retraction Tower",
+    description: "Tower with gaps to test retraction settings and minimize stringing.",
+    category: "calibration",
+    difficulty: "easy",
+    estimatedPrintTime: "30m",
+    printTime: "30m",
+    material: "Any",
+    icon: "🧵",
+    tags: ["calibration", "retraction", "stringing", "test"],
+    dimensions: { width: 45, depth: 30, height: 60 },
+    parameters: [
+      { name: "baseSize", type: "number", default: 30, min: 20, max: 50, step: 5, label: "Base Size (mm)" },
+      { name: "height", type: "number", default: 60, min: 40, max: 100, step: 10, label: "Height (mm)" },
+      { name: "towers", type: "number", default: 2, min: 2, max: 4, step: 1, label: "Number of Towers" },
+      { name: "gap", type: "number", default: 15, min: 10, max: 30, step: 5, label: "Gap (mm)" },
+      { name: "towerDia", type: "number", default: 8, min: 5, max: 15, step: 1, label: "Tower Diameter (mm)" }
+    ],
+    notes: [
+      "Check for strings between towers",
+      "Increase retraction distance if stringing",
+      "Increase retraction speed for faster travel"
+    ],
+    code: `function main(params) {
+  const { baseSize = 30, height = 60, towers = 2, gap = 15, towerDia = 8 } = params;
+
+  let base = cuboid({ size: [baseSize + gap * (towers-1), baseSize, 2] });
+  base = translate([gap * (towers-1) / 2, 0, 1], base);
+
+  for (let i = 0; i < towers; i++) {
+    let tower = cylinder({ radius: towerDia/2, height: height, segments: 32 });
+    tower = translate([i * gap, 0, height/2 + 2], tower);
+    base = union(base, tower);
+  }
+
+  return base;
+}`,
+  },
+  {
+    id: "overhang-test",
+    name: "Overhang Test",
+    description: "Progressive overhang angles from 20° to 70° to test cooling and support needs.",
+    category: "calibration",
+    difficulty: "easy",
+    estimatedPrintTime: "25m",
+    printTime: "25m",
+    material: "Any",
+    icon: "📐",
+    tags: ["calibration", "overhang", "cooling", "support"],
+    dimensions: { width: 60, depth: 20, height: 30 },
+    parameters: [
+      { name: "width", type: "number", default: 60, min: 40, max: 100, step: 10, label: "Width (mm)" },
+      { name: "depth", type: "number", default: 20, min: 15, max: 30, step: 5, label: "Depth (mm)" },
+      { name: "height", type: "number", default: 30, min: 20, max: 50, step: 5, label: "Height (mm)" }
+    ],
+    notes: [
+      "Most printers handle up to 45° without support",
+      "Increase cooling for better overhangs",
+      "Use supports above 50-60°"
+    ],
+    code: `function main(params) {
+  const { width = 60, depth = 20, height = 30 } = params;
+
+  let base = cuboid({ size: [width, depth, 5] });
+  base = translate([0, 0, 2.5], base);
+
+  const angles = [20, 30, 40, 45, 50, 60, 70];
+  const sectionWidth = width / angles.length;
+
+  for (let i = 0; i < angles.length; i++) {
+    const x = -width/2 + sectionWidth/2 + i * sectionWidth;
+    let section = cuboid({ size: [sectionWidth - 1, depth, height] });
+    section = translate([x, 0, height/2 + 5], section);
+    base = union(base, section);
+  }
+
+  return base;
+}`,
+  },
+  {
+    id: "tolerance-test",
+    name: "Tolerance Fit Test",
+    description: "Test print with various hole sizes to determine your printer's tolerance for fitted parts.",
+    category: "calibration",
+    difficulty: "easy",
+    estimatedPrintTime: "20m",
+    printTime: "20m",
+    material: "Any",
+    icon: "🔘",
+    tags: ["calibration", "tolerance", "fit", "accuracy"],
+    dimensions: { width: 80, depth: 80, height: 5 },
+    parameters: [
+      { name: "baseSize", type: "number", default: 80, min: 60, max: 120, step: 10, label: "Base Size (mm)" },
+      { name: "baseHeight", type: "number", default: 5, min: 3, max: 10, step: 1, label: "Base Height (mm)" },
+      { name: "holeDia", type: "number", default: 10, min: 5, max: 20, step: 1, label: "Hole Diameter (mm)" },
+      { name: "toleranceStep", type: "number", default: 0.1, min: 0.05, max: 0.2, step: 0.05, label: "Tolerance Step (mm)" }
+    ],
+    notes: [
+      "Test which peg fits which hole",
+      "Note the tolerance for snug/loose fit",
+      "Use this tolerance for future designs"
+    ],
+    code: `function main(params) {
+  const { baseSize = 80, baseHeight = 5, holeDia = 10, toleranceStep = 0.1 } = params;
+
+  let base = cuboid({ size: [baseSize, baseSize, baseHeight] });
+  base = translate([0, 0, baseHeight/2], base);
+
+  const tolerances = [-0.2, -0.1, 0, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4];
+  const spacing = baseSize / 4;
+
+  let idx = 0;
+  for (let row = -1; row <= 1; row++) {
+    for (let col = -1; col <= 1; col++) {
+      if (idx < tolerances.length) {
+        const tolerance = tolerances[idx];
+        const actualDia = holeDia + tolerance;
+        let hole = cylinder({ radius: actualDia/2, height: baseHeight + 2, segments: 32 });
+        hole = translate([col * spacing, row * spacing, baseHeight/2], hole);
+        base = subtract(base, hole);
+        idx++;
+      }
+    }
+  }
+
+  return base;
+}`,
+  },
+  // ============================================
+  // FUNCTIONAL PRINTS
+  // ============================================
+  {
+    id: "headphone-hanger",
+    name: "Under-Desk Headphone Hanger",
+    description: "Clips under a desk to hang headphones. No screws required.",
+    category: "functional",
+    difficulty: "easy",
+    estimatedPrintTime: "1h 30m",
+    printTime: "1h 30m",
+    material: "PETG",
+    icon: "🎧",
+    tags: ["headphones", "hanger", "desk", "clip"],
+    dimensions: { width: 40, depth: 50, height: 75 },
+    parameters: [
+      { name: "deskThickness", type: "number", default: 25, min: 15, max: 40, step: 1, label: "Desk Thickness (mm)" },
+      { name: "hookWidth", type: "number", default: 40, min: 30, max: 60, step: 5, label: "Hook Width (mm)" },
+      { name: "hookDepth", type: "number", default: 50, min: 30, max: 80, step: 5, label: "Hook Depth (mm)" },
+      { name: "hookRadius", type: "number", default: 15, min: 10, max: 25, step: 1, label: "Hook Curve (mm)" },
+      { name: "clipDepth", type: "number", default: 40, min: 30, max: 60, step: 5, label: "Clip Depth (mm)" },
+      { name: "thickness", type: "number", default: 5, min: 4, max: 8, step: 0.5, label: "Thickness (mm)" }
+    ],
+    notes: [
+      "Measure desk thickness first",
+      "PETG for flexibility",
+      "No tools needed to install"
+    ],
+    code: `function main(params) {
+  const { deskThickness = 25, hookWidth = 40, hookDepth = 50, hookRadius = 15, clipDepth = 40, thickness = 5 } = params;
+
+  let topClip = cuboid({ size: [hookWidth, clipDepth, thickness] });
+  topClip = translate([0, clipDepth/2, deskThickness + thickness/2], topClip);
+
+  let vertical = cuboid({ size: [hookWidth, thickness, deskThickness + hookDepth] });
+  vertical = translate([0, 0, (deskThickness + hookDepth)/2], vertical);
+
+  let bottom = cuboid({ size: [hookWidth, hookRadius, thickness] });
+  bottom = translate([0, -hookRadius/2, -hookDepth + thickness/2], bottom);
+
+  let hanger = union(topClip, vertical);
+  hanger = union(hanger, bottom);
+
+  return hanger;
+}`,
+  },
+  {
+    id: "cable-clip",
+    name: "Adhesive Cable Clip",
+    description: "Cable management clips with flat back for adhesive mounting. Various sizes.",
+    category: "functional",
+    difficulty: "easy",
+    estimatedPrintTime: "15m",
+    printTime: "15m",
+    material: "PLA",
+    icon: "🔌",
+    tags: ["cable", "clip", "management", "adhesive"],
+    dimensions: { width: 20, depth: 15, height: 14 },
+    parameters: [
+      { name: "cableDia", type: "number", default: 6, min: 3, max: 15, step: 0.5, label: "Cable Diameter (mm)" },
+      { name: "baseWidth", type: "number", default: 20, min: 15, max: 30, step: 1, label: "Base Width (mm)" },
+      { name: "baseDepth", type: "number", default: 15, min: 10, max: 25, step: 1, label: "Base Depth (mm)" },
+      { name: "quantity", type: "number", default: 4, min: 1, max: 10, step: 1, label: "Quantity" }
+    ],
+    nonPrintedParts: [
+      "Double-sided adhesive tape or 3M Command strips"
+    ],
+    notes: [
+      "Measure cable diameter first",
+      "Use strong adhesive for heavy cables",
+      "Cable snaps in from top"
+    ],
+    code: `function main(params) {
+  const { cableDia = 6, baseWidth = 20, baseDepth = 15, quantity = 4 } = params;
+
+  const baseHeight = 2;
+  const clipHeight = cableDia + 4;
+
+  function makeClip() {
+    let base = cuboid({ size: [baseWidth, baseDepth, baseHeight] });
+    base = translate([0, 0, baseHeight/2], base);
+
+    let holder = cylinder({ radius: cableDia/2 + 2, height: baseDepth * 0.8, segments: 32 });
+    holder = rotateX(Math.PI/2, holder);
+    holder = translate([0, 0, clipHeight/2 + baseHeight], holder);
+
+    let cableSpace = cylinder({ radius: cableDia/2, height: baseDepth + 2, segments: 32 });
+    cableSpace = rotateX(Math.PI/2, cableSpace);
+    cableSpace = translate([0, 0, clipHeight/2 + baseHeight], cableSpace);
+
+    let opening = cuboid({ size: [cableDia * 0.6, baseDepth + 2, cableDia + 4] });
+    opening = translate([0, 0, clipHeight + baseHeight], opening);
+
+    let clip = union(base, holder);
+    clip = subtract(clip, cableSpace);
+    clip = subtract(clip, opening);
+
+    return clip;
+  }
+
+  const spacing = baseWidth + 5;
+  let result = makeClip();
+
+  for (let i = 1; i < quantity; i++) {
+    let clip = makeClip();
+    clip = translate([i * spacing - (quantity - 1) * spacing / 2, 0, 0], clip);
+    result = union(result, clip);
+  }
+
+  return result;
+}`,
+  },
+  // ============================================
+  // ORGANIZATION
+  // ============================================
+  {
+    id: "hex-bin",
+    name: "Stackable Hex Bin",
+    description: "Hexagonal storage bins that tessellate together. Perfect for small parts.",
+    category: "organization",
+    difficulty: "easy",
+    estimatedPrintTime: "45m",
+    printTime: "45m",
+    material: "PLA",
+    icon: "⬡",
+    tags: ["storage", "bin", "hex", "stackable", "modular"],
+    dimensions: { width: 40, depth: 40, height: 30 },
+    parameters: [
+      { name: "size", type: "number", default: 40, min: 20, max: 80, step: 5, label: "Hex Size (mm)" },
+      { name: "height", type: "number", default: 30, min: 15, max: 60, step: 5, label: "Height (mm)" },
+      { name: "wallThickness", type: "number", default: 1.6, min: 1.2, max: 3, step: 0.4, label: "Wall Thickness (mm)" },
+      { name: "stackingLip", type: "number", default: 2, min: 1, max: 4, step: 0.5, label: "Stacking Lip (mm)" }
+    ],
+    notes: [
+      "Hexagons tessellate perfectly",
+      "Stack vertically with lip",
+      "Great for screws, parts, LEGOs"
+    ],
+    code: `function main(params) {
+  const { size = 40, height = 30, wallThickness = 1.6, stackingLip = 2 } = params;
+
+  let outer = cylinder({ radius: size/2, height: height, segments: 6 });
+  outer = translate([0, 0, height/2], outer);
+
+  let inner = cylinder({ radius: size/2 - wallThickness, height: height - wallThickness, segments: 6 });
+  inner = translate([0, 0, height/2 + wallThickness/2], inner);
+
+  let bin = subtract(outer, inner);
+
+  let lip = cylinder({ radius: size/2 - wallThickness - 0.2, height: stackingLip, segments: 6 });
+  lip = translate([0, 0, height + stackingLip/2], lip);
+  bin = union(bin, lip);
+
+  return bin;
+}`,
+  },
+  {
+    id: "sd-card-holder",
+    name: "SD Card Holder",
+    description: "Compact holder for SD and microSD cards with labels.",
+    category: "organization",
+    difficulty: "easy",
+    estimatedPrintTime: "30m",
+    printTime: "30m",
+    material: "PLA",
+    icon: "💾",
+    tags: ["sd-card", "storage", "holder", "electronics"],
+    dimensions: { width: 60, depth: 50, height: 50 },
+    parameters: [
+      { name: "sdSlots", type: "number", default: 4, min: 2, max: 8, step: 1, label: "SD Card Slots" },
+      { name: "microSlots", type: "number", default: 6, min: 0, max: 10, step: 1, label: "MicroSD Slots" },
+      { name: "labelArea", type: "number", default: 15, min: 10, max: 25, step: 1, label: "Label Area (mm)" }
+    ],
+    notes: [
+      "Label area for writing card contents",
+      "Cards slide in from top",
+      "Keeps cards organized and protected"
+    ],
+    code: `function main(params) {
+  const { sdSlots = 4, microSlots = 6, labelArea = 15 } = params;
+
+  const sdWidth = 24;
+  const sdHeight = 32;
+  const sdThick = 2.5;
+  const wallThickness = 2;
+  const baseHeight = 3;
+
+  const totalWidth = sdSlots * (sdThick + 2) + wallThickness * 2;
+  const totalDepth = sdWidth + 20;
+  const totalHeight = sdHeight + labelArea + baseHeight;
+
+  let holder = cuboid({ size: [totalWidth, totalDepth, baseHeight] });
+  holder = translate([0, 0, baseHeight/2], holder);
+
+  let sdSection = cuboid({ size: [totalWidth - 4, sdWidth + wallThickness, sdHeight + labelArea] });
+  sdSection = translate([0, -totalDepth/2 + sdWidth/2 + wallThickness, (sdHeight + labelArea)/2 + baseHeight], sdSection);
+  holder = union(holder, sdSection);
+
+  for (let i = 0; i < sdSlots; i++) {
+    let slot = cuboid({ size: [sdThick, sdWidth + 1, sdHeight + 1] });
+    const x = -totalWidth/2 + 5 + i * (sdThick + 2);
+    slot = translate([x, -totalDepth/2 + sdWidth/2 + wallThickness, sdHeight/2 + baseHeight], slot);
+    holder = subtract(holder, slot);
+  }
+
+  return holder;
+}`,
+  },
+  // ============================================
+  // CONTAINERS & BOXES
+  // ============================================
+  {
+    id: "snap-box",
+    name: "Snap-Fit Box",
+    description: "Box with snap-fit lid. No hinges or hardware required.",
+    category: "containers",
+    difficulty: "easy",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PLA/PETG",
+    icon: "📦",
+    tags: ["box", "container", "snap-fit", "lid", "storage"],
+    dimensions: { width: 60, depth: 40, height: 30 },
+    parameters: [
+      { name: "width", type: "number", default: 60, min: 30, max: 150, step: 5, label: "Width (mm)" },
+      { name: "depth", type: "number", default: 40, min: 30, max: 100, step: 5, label: "Depth (mm)" },
+      { name: "height", type: "number", default: 30, min: 20, max: 80, step: 5, label: "Height (mm)" },
+      { name: "wallThickness", type: "number", default: 2, min: 1.5, max: 4, step: 0.5, label: "Wall Thickness (mm)" },
+      { name: "cornerRadius", type: "number", default: 3, min: 0, max: 10, step: 1, label: "Corner Radius (mm)" }
+    ],
+    notes: [
+      "Lid snaps on securely",
+      "Print box and lid separately",
+      "PETG for more flexible snap"
+    ],
+    code: `function main(params) {
+  const { width = 60, depth = 40, height = 30, wallThickness = 2, cornerRadius = 3 } = params;
+
+  let boxOuter = cuboid({ size: [width, depth, height] });
+  boxOuter = translate([0, 0, height/2], boxOuter);
+
+  let boxInner = cuboid({
+    size: [width - wallThickness*2, depth - wallThickness*2, height - wallThickness]
+  });
+  boxInner = translate([0, 0, height/2 + wallThickness/2], boxInner);
+
+  let box = subtract(boxOuter, boxInner);
+
+  let lidOuter = cuboid({ size: [width + 2, depth + 2, 8] });
+  lidOuter = translate([0, 0, 4], lidOuter);
+
+  let lid = translate([width + 10, 0, 0], lidOuter);
+
+  return union(box, lid);
+}`,
+  },
+  // ============================================
+  // ELECTRONICS ENCLOSURES
+  // ============================================
+  {
+    id: "raspberry-pi-case",
+    name: "Raspberry Pi Case",
+    description: "Vented case for Raspberry Pi 4 with mounting holes and port access.",
+    category: "electronics",
+    difficulty: "medium",
+    estimatedPrintTime: "3h",
+    printTime: "3h",
+    material: "PLA/PETG",
+    icon: "🍓",
+    tags: ["raspberry-pi", "case", "electronics", "vented"],
+    dimensions: { width: 95, depth: 66, height: 30 },
+    parameters: [
+      { name: "ventSlots", type: "number", default: 8, min: 4, max: 12, step: 1, label: "Vent Slots" },
+      { name: "wallThickness", type: "number", default: 2, min: 1.5, max: 3, step: 0.5, label: "Wall Thickness (mm)" },
+      { name: "standoffHeight", type: "number", default: 3, min: 2, max: 5, step: 0.5, label: "Standoff Height (mm)" }
+    ],
+    nonPrintedParts: [
+      "M2.5 x 6mm screws (4 pcs) for mounting Pi"
+    ],
+    notes: [
+      "Designed for Raspberry Pi 4",
+      "Vents for passive cooling",
+      "All ports accessible"
+    ],
+    code: `function main(params) {
+  const { ventSlots = 8, wallThickness = 2, standoffHeight = 3 } = params;
+
+  const piWidth = 85;
+  const piDepth = 56;
+  const piHeight = 20;
+
+  const caseWidth = piWidth + wallThickness * 2 + 2;
+  const caseDepth = piDepth + wallThickness * 2 + 2;
+  const caseHeight = piHeight + standoffHeight + wallThickness + 2;
+
+  let caseBody = cuboid({ size: [caseWidth, caseDepth, caseHeight] });
+  caseBody = translate([0, 0, caseHeight/2], caseBody);
+
+  let hollow = cuboid({
+    size: [caseWidth - wallThickness*2, caseDepth - wallThickness*2, caseHeight - wallThickness]
+  });
+  hollow = translate([0, 0, caseHeight/2 + wallThickness/2], hollow);
+  caseBody = subtract(caseBody, hollow);
+
+  const holeSpacing = { x: 58, y: 49 };
+  for (let x of [-1, 1]) {
+    for (let y of [-1, 1]) {
+      let standoff = cylinder({ radius: 3, height: standoffHeight, segments: 16 });
+      let screwHole = cylinder({ radius: 1.3, height: standoffHeight + 2, segments: 16 });
+      standoff = subtract(standoff, screwHole);
+      standoff = translate([x * holeSpacing.x/2, y * holeSpacing.y/2, standoffHeight/2 + wallThickness], standoff);
+      caseBody = union(caseBody, standoff);
+    }
+  }
+
+  return caseBody;
+}`,
+  },
+  // ============================================
+  // HOUSEHOLD
+  // ============================================
+  {
+    id: "wall-hook",
+    name: "Wall Hook",
+    description: "Simple wall hook for keys, bags, or coats. Mounts with screws or adhesive.",
+    category: "household",
+    difficulty: "easy",
+    estimatedPrintTime: "30m",
+    printTime: "30m",
+    material: "PETG",
+    icon: "🪝",
+    tags: ["hook", "wall", "mount", "keys", "coat"],
+    dimensions: { width: 30, depth: 40, height: 60 },
+    parameters: [
+      { name: "hookLength", type: "number", default: 40, min: 20, max: 80, step: 5, label: "Hook Length (mm)" },
+      { name: "hookWidth", type: "number", default: 15, min: 10, max: 30, step: 2, label: "Hook Width (mm)" },
+      { name: "hookRadius", type: "number", default: 15, min: 8, max: 25, step: 1, label: "Hook Curve (mm)" },
+      { name: "plateWidth", type: "number", default: 30, min: 20, max: 50, step: 5, label: "Plate Width (mm)" },
+      { name: "plateHeight", type: "number", default: 60, min: 40, max: 100, step: 5, label: "Plate Height (mm)" },
+      { name: "thickness", type: "number", default: 5, min: 4, max: 8, step: 0.5, label: "Thickness (mm)" }
+    ],
+    nonPrintedParts: [
+      "Screws and wall anchors (optional)",
+      "Command strips or adhesive (alternative)"
+    ],
+    notes: [
+      "PETG for strength",
+      "Print with hook facing up",
+      "Use wall anchors in drywall"
+    ],
+    code: `function main(params) {
+  const { hookLength = 40, hookWidth = 15, hookRadius = 15, plateWidth = 30, plateHeight = 60, thickness = 5 } = params;
+
+  let plate = cuboid({ size: [plateWidth, plateHeight, thickness] });
+  plate = translate([0, 0, thickness/2], plate);
+
+  let arm = cuboid({ size: [hookWidth, hookLength, thickness] });
+  arm = translate([0, -plateHeight/2 - hookLength/2, thickness/2], arm);
+
+  let wallHook = union(plate, arm);
+
+  return wallHook;
+}`,
+  },
+  // ============================================
+  // TOYS & GAMES
+  // ============================================
+  {
+    id: "fidget-cube",
+    name: "Fidget Cube",
+    description: "Satisfying fidget toy with clicky buttons, spinning dial, and rolling ball.",
+    category: "toys-games",
+    difficulty: "medium",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PLA",
+    icon: "🎲",
+    tags: ["fidget", "toy", "cube", "stress-relief"],
+    dimensions: { width: 35, depth: 35, height: 35 },
+    parameters: [
+      { name: "size", type: "number", default: 35, min: 25, max: 50, step: 5, label: "Cube Size (mm)" },
+      { name: "buttonDia", type: "number", default: 8, min: 6, max: 12, step: 1, label: "Button Diameter (mm)" },
+      { name: "cornerRadius", type: "number", default: 4, min: 2, max: 8, step: 1, label: "Corner Radius (mm)" }
+    ],
+    nonPrintedParts: [
+      "Small springs for buttons (optional)",
+      "6mm ball bearing for track (optional)"
+    ],
+    notes: [
+      "Print buttons separately",
+      "Buttons should have slight friction fit",
+      "Sand smooth for best feel"
+    ],
+    code: `function main(params) {
+  const { size = 35, buttonDia = 8, cornerRadius = 4 } = params;
+
+  let cube = cuboid({ size: [size, size, size] });
+  cube = translate([0, 0, size/2], cube);
+
+  const buttonPositions = [
+    [0, 0],
+    [-size/4, -size/4],
+    [size/4, -size/4],
+    [-size/4, size/4],
+    [size/4, size/4]
+  ];
+
+  for (const [x, y] of buttonPositions) {
+    let buttonHole = cylinder({ radius: buttonDia/2, height: size/3, segments: 16 });
+    buttonHole = rotateY(Math.PI/2, buttonHole);
+    buttonHole = translate([size/2 - size/6, x, y + size/2], buttonHole);
+    cube = subtract(cube, buttonHole);
+  }
+
+  return cube;
+}`,
+  },
+  // ============================================
+  // MAKER TOOLS
+  // ============================================
+  {
+    id: "soldering-helper",
+    name: "Soldering Helping Hands",
+    description: "Third hand tool for holding PCBs and wires while soldering.",
+    category: "maker-tools",
+    difficulty: "medium",
+    estimatedPrintTime: "3h",
+    printTime: "3h",
+    material: "PETG",
+    icon: "🔧",
+    tags: ["soldering", "helper", "pcb", "holder", "maker"],
+    dimensions: { width: 80, depth: 60, height: 100 },
+    parameters: [
+      { name: "baseWidth", type: "number", default: 80, min: 60, max: 120, step: 10, label: "Base Width (mm)" },
+      { name: "baseDepth", type: "number", default: 60, min: 40, max: 80, step: 10, label: "Base Depth (mm)" },
+      { name: "armHeight", type: "number", default: 100, min: 60, max: 150, step: 10, label: "Arm Height (mm)" },
+      { name: "clipWidth", type: "number", default: 30, min: 20, max: 50, step: 5, label: "Clip Width (mm)" },
+      { name: "arms", type: "number", default: 2, min: 1, max: 4, step: 1, label: "Number of Arms" }
+    ],
+    nonPrintedParts: [
+      "Alligator clips (one per arm)",
+      "Optional: weights for base stability"
+    ],
+    notes: [
+      "Ball joints allow positioning",
+      "Heavy base prevents tipping",
+      "PETG for heat resistance near soldering"
+    ],
+    code: `function main(params) {
+  const { baseWidth = 80, baseDepth = 60, armHeight = 100, clipWidth = 30, arms = 2 } = params;
+
+  const baseHeight = 10;
+  const armDia = 10;
+
+  let base = cuboid({ size: [baseWidth, baseDepth, baseHeight] });
+  base = translate([0, 0, baseHeight/2], base);
+
+  let post = cylinder({ radius: armDia/2 + 2, height: 30, segments: 32 });
+  post = translate([0, 0, 30/2 + baseHeight], post);
+  base = union(base, post);
+
+  return base;
+}`,
+  },
 ]
 
 export const CATEGORIES = [
   { value: "all", label: "All Categories" },
+  // Existing categories
   { value: "phone-stand", label: "Phone Stands" },
   { value: "tablet-stand", label: "Tablet Stands" },
   { value: "cable-organizer", label: "Cable Organizers" },
@@ -1634,4 +2597,15 @@ export const CATEGORIES = [
   { value: "gaming", label: "Gaming" },
   { value: "gridfinity", label: "Gridfinity" },
   { value: "keyboard", label: "Keyboard" },
+  // P1S / Printer categories
+  { value: "p1s-accessories", label: "P1S Accessories" },
+  { value: "calibration", label: "Calibration & Test" },
+  { value: "functional", label: "Functional Prints" },
+  { value: "organization", label: "Organization" },
+  { value: "mechanical", label: "Mechanical Parts" },
+  { value: "electronics", label: "Electronics" },
+  { value: "containers", label: "Containers & Boxes" },
+  { value: "household", label: "Household" },
+  { value: "toys-games", label: "Toys & Games" },
+  { value: "maker-tools", label: "Maker Tools" },
 ]
