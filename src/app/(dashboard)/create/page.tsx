@@ -145,6 +145,9 @@ export default function CreatePage() {
         data.parameters.reduce((acc, p) => ({ ...acc, [p.name]: p.default }), {})
       )
       setGeometry(geom)
+
+      // On mobile, automatically show the 3D viewer after generation
+      setMobileShowViewer(true)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Something went wrong"
 

@@ -39,6 +39,10 @@ export const JSCADResponseSchema = z.object({
     "toy",
     "decoration",
     "custom",
+    "fidget-toy",
+    "gaming",
+    "gridfinity",
+    "keyboard",
   ]),
 })
 
