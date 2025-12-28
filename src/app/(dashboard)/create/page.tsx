@@ -245,22 +245,27 @@ function CreatePageContent() {
 
   // Add generated model to scene as an editable object
   const handleAddToScene = useCallback(() => {
-    if (!geometry || !code) return
+    if (!geometry) return
 
-    // Generate a name from response description, or extract from code, or use default
-    let name = "Generated Model"
+    // Generate a name from model name, response description, or default
+    let name = modelName !== "Untitled Model" ? modelName : "Generated Model"
     if (response?.description) {
       name = response.description.split(" ").slice(0, 4).join(" ")
-    } else if (parameters.length > 0) {
+    } else if (parameters.length > 0 && name === "Generated Model") {
       // Try to create a name from the first parameter or just use "Custom Model"
       name = `Custom Model ${editorObjects.length + 1}`
     }
 
-    importGeometryAsObject(name, geometry, code, parameterValues, parameters, modelColor)
+    // For imported/generated models without code, pass empty string
+    importGeometryAsObject(name, geometry, code || "", parameterValues, parameters, modelColor)
 
     // Clear the legacy geometry so it doesn't show duplicated
     setGeometry(null)
-  }, [geometry, response, code, parameterValues, parameters, modelColor, importGeometryAsObject, setGeometry, editorObjects.length])
+
+    toast.success("Added to scene!", {
+      description: `${name} is now in your scene for editing.`,
+    })
+  }, [geometry, response, code, parameterValues, parameters, modelColor, modelName, importGeometryAsObject, setGeometry, editorObjects.length])
 
   // Handle image to surface generation
   const handleImageToSurface = useCallback((generatedGeometry: NonNullable<typeof geometry>, name: string) => {
