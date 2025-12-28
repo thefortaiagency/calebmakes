@@ -56,7 +56,7 @@ export default function ThumbnailGeneratorPage() {
   useEffect(() => {
     // Load existing thumbnails from Supabase
     const loadExisting = async () => {
-      const initial = TEMPLATES.map((t) => ({
+      const initial: ThumbnailState[] = TEMPLATES.map((t) => ({
         id: t.id,
         name: t.name,
         status: "pending" as Status,
@@ -67,7 +67,8 @@ export default function ThumbnailGeneratorPage() {
       }))
 
       // Check which thumbnails already exist in Supabase
-      for (const thumb of initial) {
+      for (let i = 0; i < initial.length; i++) {
+        const thumb = initial[i]
         const { data } = supabase.storage
           .from("thumbnails")
           .getPublicUrl(`templates/${thumb.id}.png`)
@@ -76,9 +77,9 @@ export default function ThumbnailGeneratorPage() {
         try {
           const res = await fetch(data.publicUrl, { method: "HEAD" })
           if (res.ok) {
-            thumb.imageUrl = data.publicUrl
-            thumb.status = "done"
-            thumb.selected = false // Don't regenerate existing ones by default
+            initial[i].imageUrl = data.publicUrl
+            initial[i].status = "done"
+            initial[i].selected = false
           }
         } catch {
           // Doesn't exist, keep as pending
