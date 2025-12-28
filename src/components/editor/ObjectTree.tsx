@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useEditorStore, useSelectedObjectIds } from "@/lib/stores/editor-store"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
   Box,
   Eye,
   EyeOff,
@@ -20,11 +26,104 @@ import {
   Copy,
   Trash2,
   Layers,
-  ChevronDown,
-  ChevronRight,
+  Palette,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { SceneObject } from "@/lib/types/editor"
+
+// Filament colors matching common AMS slot colors
+const FILAMENT_COLORS = [
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Black", hex: "#1A1A1A" },
+  { name: "Red", hex: "#E53935" },
+  { name: "Blue", hex: "#1E88E5" },
+  { name: "Green", hex: "#43A047" },
+  { name: "Yellow", hex: "#FDD835" },
+  { name: "Orange", hex: "#FB8C00" },
+  { name: "Purple", hex: "#8E24AA" },
+  { name: "Pink", hex: "#EC407A" },
+  { name: "Cyan", hex: "#00BCD4" },
+  { name: "Gray", hex: "#757575" },
+  { name: "Brown", hex: "#795548" },
+  { name: "Gold", hex: "#FFD700" },
+  { name: "Silver", hex: "#C0C0C0" },
+  { name: "Transparent", hex: "#B3E5FC" },
+  { name: "Wood", hex: "#A1887F" },
+]
+
+interface ColorPickerProps {
+  color: string
+  onColorChange: (color: string) => void
+}
+
+function ColorPicker({ color, onColorChange }: ColorPickerProps) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="w-5 h-5 rounded-full border-2 border-gray-600 hover:border-gray-400 transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+          style={{ backgroundColor: color }}
+          onClick={(e) => e.stopPropagation()}
+          title="Change color"
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-48 p-2 bg-gray-900 border-gray-700"
+        align="end"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-1.5 mb-2">
+          <Palette className="w-3.5 h-3.5 text-gray-400" />
+          <span className="text-xs text-gray-400">Filament Color</span>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {FILAMENT_COLORS.map((filament) => (
+            <button
+              key={filament.name}
+              className={cn(
+                "w-8 h-8 rounded-md border-2 transition-all hover:scale-110",
+                color === filament.hex
+                  ? "border-cyan-400 ring-2 ring-cyan-400/30"
+                  : "border-gray-600 hover:border-gray-400"
+              )}
+              style={{ backgroundColor: filament.hex }}
+              onClick={() => {
+                onColorChange(filament.hex)
+                setIsOpen(false)
+              }}
+              title={filament.name}
+            />
+          ))}
+        </div>
+        {/* Custom color input */}
+        <div className="mt-2 pt-2 border-t border-gray-700">
+          <label className="text-xs text-gray-400 mb-1 block">Custom:</label>
+          <div className="flex gap-2">
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => onColorChange(e.target.value)}
+              className="w-8 h-8 rounded cursor-pointer bg-transparent border-0"
+            />
+            <input
+              type="text"
+              value={color}
+              onChange={(e) => {
+                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                  onColorChange(e.target.value)
+                }
+              }}
+              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 font-mono"
+              placeholder="#00D4FF"
+            />
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 interface ObjectItemProps {
   object: SceneObject
@@ -34,6 +133,7 @@ interface ObjectItemProps {
   onToggleLock: () => void
   onDuplicate: () => void
   onDelete: () => void
+  onColorChange: (color: string) => void
 }
 
 function ObjectItem({
@@ -44,6 +144,7 @@ function ObjectItem({
   onToggleLock,
   onDuplicate,
   onDelete,
+  onColorChange,
 }: ObjectItemProps) {
   const typeIcon = {
     generated: "bg-cyan-500/20 text-cyan-400",
@@ -81,11 +182,8 @@ function ObjectItem({
         {object.name}
       </span>
 
-      {/* Color indicator */}
-      <div
-        className="w-4 h-4 rounded-full border border-gray-600"
-        style={{ backgroundColor: object.color }}
-      />
+      {/* Color picker */}
+      <ColorPicker color={object.color} onColorChange={onColorChange} />
 
       {/* Visibility toggle */}
       <Button
@@ -175,6 +273,7 @@ export default function ObjectTree() {
   const selectedObjectIds = useSelectedObjectIds()
   const selectObject = useEditorStore((state) => state.selectObject)
   const updateObject = useEditorStore((state) => state.updateObject)
+  const setObjectColor = useEditorStore((state) => state.setObjectColor)
   const duplicateObject = useEditorStore((state) => state.duplicateObject)
   const removeObject = useEditorStore((state) => state.removeObject)
   const selectAll = useEditorStore((state) => state.selectAll)
@@ -232,6 +331,7 @@ export default function ObjectTree() {
                 }
                 onDuplicate={() => duplicateObject(object.id)}
                 onDelete={() => removeObject(object.id)}
+                onColorChange={(color) => setObjectColor(object.id, color)}
               />
             ))
           )}

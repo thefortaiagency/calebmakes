@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, Suspense, useRef } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X, Upload, GitFork, PenTool, Glasses } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X, Upload, GitFork, PenTool, Glasses, Palette } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,6 +12,14 @@ import { useModelStore } from "@/lib/store"
 import { useEditorStore } from "@/lib/stores/editor-store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import { downloadSTL } from "@/lib/jscad/stl-export"
+import { export3MF } from "@/lib/jscad/3mf-export"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { parseSTL, validateSTLFile, calculateBounds } from "@/lib/jscad/stl-import"
 import { parseOpenSCADFile, validateOpenSCADFile, type ParsedOpenSCAD } from "@/lib/openscad"
 import ParameterControls from "@/components/editor/ParameterControls"
@@ -406,13 +414,13 @@ function CreatePageContent() {
     }
   }
 
-  const handleDownload = async () => {
+  const handleDownload = async (format: "stl" | "3mf" = "stl") => {
     // Determine which geometry to export - editor objects take priority
     const geometryToExport = editorObjects.length > 0
       ? editorObjects[0]?.geometry
       : geometry
 
-    if (!geometryToExport) {
+    if (!geometryToExport && editorObjects.length === 0) {
       toast.error("No model to export", {
         description: "Generate or create a model first before downloading.",
       })
@@ -429,20 +437,56 @@ function CreatePageContent() {
         .substring(0, 50) // Limit length
         .trim() || "model"
 
-      const filename = `${sanitizedName}.stl`
-
       // Use a small delay to ensure UI updates (loading state shows)
       await new Promise((resolve) => setTimeout(resolve, 50))
 
-      downloadSTL(geometryToExport, filename)
+      if (format === "3mf") {
+        // Export as 3MF with colors (supports multi-color)
+        if (editorObjects.length > 0) {
+          // Export all scene objects with their colors (filter out null geometries)
+          const coloredObjects = editorObjects
+            .filter((obj) => obj.geometry !== null)
+            .map((obj) => ({
+              name: obj.name,
+              geometry: obj.geometry!,
+              color: obj.color,
+              transform: obj.transform,
+            }))
 
-      toast.success("STL downloaded", {
-        description: `Saved as ${filename}`,
-      })
+          if (coloredObjects.length === 0) {
+            toast.error("No valid geometry to export")
+            return
+          }
+
+          await export3MF(coloredObjects, `${sanitizedName}.3mf`)
+          toast.success("3MF downloaded", {
+            description: `Saved ${editorObjects.length} object(s) with colors. Compatible with Bambu Studio, PrusaSlicer.`,
+          })
+        } else if (geometryToExport) {
+          // Single object export
+          await export3MF([{
+            name: modelName,
+            geometry: geometryToExport,
+            color: modelColor,
+          }], `${sanitizedName}.3mf`)
+          toast.success("3MF downloaded", {
+            description: "Saved with color data. Compatible with Bambu Studio, PrusaSlicer.",
+          })
+        }
+      } else {
+        // Export as STL (single color)
+        const geometryForSTL = geometryToExport || editorObjects[0]?.geometry
+        if (geometryForSTL) {
+          downloadSTL(geometryForSTL, `${sanitizedName}.stl`)
+          toast.success("STL downloaded", {
+            description: `Saved as ${sanitizedName}.stl`,
+          })
+        }
+      }
     } catch (err) {
-      console.error("STL download error:", err)
+      console.error("Download error:", err)
       toast.error("Download failed", {
-        description: err instanceof Error ? err.message : "Failed to generate STL file. Please try again.",
+        description: err instanceof Error ? err.message : "Failed to export. Please try again.",
       })
     } finally {
       setIsDownloading(false)
@@ -1185,20 +1229,54 @@ function CreatePageContent() {
                 <span className="hidden lg:inline">{isForking ? "Forking..." : "Fork"}</span>
               </Button>
             )}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleDownload}
-              disabled={isDownloading || (!geometry && editorObjects.length === 0)}
-              className="bg-gray-800/80 backdrop-blur-sm"
-            >
-              {isDownloading ? (
-                <Loader2 className="w-4 h-4 lg:mr-2 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4 lg:mr-2" />
-              )}
-              <span className="hidden lg:inline">{isDownloading ? "Exporting..." : "Download STL"}</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isDownloading || (!geometry && editorObjects.length === 0)}
+                  className="bg-gray-800/80 backdrop-blur-sm"
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-4 h-4 lg:mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 lg:mr-2" />
+                  )}
+                  <span className="hidden lg:inline">{isDownloading ? "Exporting..." : "Download"}</span>
+                  <ChevronDown className="w-3 h-3 ml-1 hidden lg:inline" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => handleDownload("stl")}>
+                  <Download className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span>Download STL</span>
+                    <span className="text-xs text-gray-500">Single color, universal format</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleDownload("3mf")}>
+                  <Palette className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span>Download 3MF</span>
+                    <span className="text-xs text-gray-500">
+                      {editorObjects.length > 1
+                        ? `Multi-color (${editorObjects.length} objects)`
+                        : "With color data"}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                {editorObjects.length > 1 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 py-1.5 text-xs text-gray-400">
+                      <Palette className="w-3 h-3 inline mr-1" />
+                      {editorObjects.length} objects with colors will be exported
+                    </div>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="secondary"
               size="sm"
