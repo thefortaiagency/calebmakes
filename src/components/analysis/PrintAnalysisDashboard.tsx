@@ -200,7 +200,7 @@ export default function PrintAnalysisDashboard() {
 
       {/* Material Selection */}
       <div className="p-3 border-b border-gray-800">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-gray-400">Material</span>
           <Select
             value={preferences.material}
@@ -208,17 +208,44 @@ export default function PrintAnalysisDashboard() {
               updatePreferences({ material: value })
             }
           >
-            <SelectTrigger className="w-32 h-7 text-xs bg-gray-800 border-gray-700">
+            <SelectTrigger className="w-36 h-7 text-xs bg-gray-800 border-gray-700">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.keys(MATERIAL_PRESETS).map((key) => (
-                <SelectItem key={key} value={key}>
-                  {MATERIAL_PRESETS[key as keyof typeof MATERIAL_PRESETS].name}
-                </SelectItem>
-              ))}
+              {Object.keys(MATERIAL_PRESETS).map((key) => {
+                const mat = MATERIAL_PRESETS[key as keyof typeof MATERIAL_PRESETS]
+                return (
+                  <SelectItem key={key} value={key}>
+                    <span className="flex items-center gap-1.5">
+                      <span>{mat.icon}</span>
+                      <span>{mat.displayName}</span>
+                    </span>
+                  </SelectItem>
+                )
+              })}
             </SelectContent>
           </Select>
+        </div>
+        {/* Material Info */}
+        <div className="text-xs space-y-1 text-gray-500">
+          <div className="flex justify-between">
+            <span>Hotend</span>
+            <span className="text-orange-400">{selectedMaterial.hotendTemp}°C</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Bed</span>
+            <span className="text-blue-400">{selectedMaterial.bedTemp}°C</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Speed</span>
+            <span className="text-cyan-400">{selectedMaterial.printSpeed} mm/s</span>
+          </div>
+          {selectedMaterial.enclosureRequired && (
+            <div className="flex items-center gap-1 text-yellow-400 mt-1">
+              <AlertTriangle className="w-3 h-3" />
+              <span>Enclosed chamber required</span>
+            </div>
+          )}
         </div>
       </div>
 

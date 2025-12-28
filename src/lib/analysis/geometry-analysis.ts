@@ -215,17 +215,52 @@ export function estimateWallThickness(geometry: GeometryData): {
 }
 
 /**
- * Calculate print estimates
+ * Calculate print estimates (optimized for Bambu Lab P1S)
+ *
+ * P1S Specs:
+ * - Max speed: 500mm/s
+ * - Max acceleration: 20000mm/s²
+ * - Max flow: 32mm³/s at 280°C
+ * - Build volume: 256x256x256mm
  */
 export function calculatePrintEstimates(
   volumeMm3: number,
-  material: { density: number; costPerGram: number; printSpeed: number }
+  material: { density: number; costPerGram: number; printSpeed: number },
+  layerHeight: number = 0.2,
+  infillPercent: number = 20
 ): { weight: number; printTime: number; materialCost: number } {
   const volumeCm3 = volumeMm3 / 1000
   const weight = volumeCm3 * material.density
-  const layerVolume = material.printSpeed * 0.4 * 0.2
-  const printTimeSeconds = volumeMm3 / layerVolume
-  const printTimeMinutes = printTimeSeconds / 60
+
+  // P1S has high max flow but material limits it
+  const nozzleDiameter = 0.4
+  const maxFlow = 32 // mm³/s at max temp
+
+  // Calculate effective flow based on material print speed
+  const effectiveFlow = Math.min(
+    maxFlow,
+    material.printSpeed * layerHeight * nozzleDiameter
+  )
+
+  // Base print time from volume
+  const basePrintSeconds = volumeMm3 / effectiveFlow
+
+  // Add overhead for:
+  // - Travel moves (~30%)
+  // - Acceleration/deceleration (~10%)
+  // - Layer changes (~5%)
+  // - Retraction (~5%)
+  const travelOverhead = basePrintSeconds * 0.30
+  const accelOverhead = basePrintSeconds * 0.10
+  const layerOverhead = basePrintSeconds * 0.05
+  const retractOverhead = basePrintSeconds * 0.05
+
+  // P1S heating time (fast heating bed)
+  const heatingTimeMinutes = 3
+
+  const totalSeconds = basePrintSeconds + travelOverhead + accelOverhead + layerOverhead + retractOverhead
+  const printTimeMinutes = (totalSeconds / 60) + heatingTimeMinutes
+
   const materialCost = weight * material.costPerGram
 
   return { weight, printTime: printTimeMinutes, materialCost }

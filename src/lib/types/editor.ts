@@ -152,38 +152,125 @@ export interface PrintAnalysis {
   }
 }
 
-// Material presets for print analysis
+// Material presets for print analysis (Bambu Lab P1S optimized)
 export interface MaterialPreset {
   name: string
+  displayName: string
   density: number            // g/cm^3
   costPerGram: number        // $/g
-  printSpeed: number         // mm/s (average)
+  printSpeed: number         // mm/s (average for P1S)
+  hotendTemp: number         // °C (recommended)
+  bedTemp: number            // °C (recommended)
+  enclosureRequired: boolean
+  icon: string
+  color: string              // UI color
+  notes: string[]
 }
 
 export const MATERIAL_PRESETS: Record<string, MaterialPreset> = {
   PLA: {
     name: "PLA",
+    displayName: "PLA",
     density: 1.24,
     costPerGram: 0.02,
-    printSpeed: 60,
+    printSpeed: 150,         // P1S can go fast with PLA
+    hotendTemp: 210,
+    bedTemp: 60,
+    enclosureRequired: false,
+    icon: "🌱",
+    color: "#22c55e",
+    notes: ["Best for beginners", "Low warping", "Not heat resistant"],
   },
   PETG: {
     name: "PETG",
+    displayName: "PETG",
     density: 1.27,
     costPerGram: 0.025,
-    printSpeed: 50,
+    printSpeed: 100,
+    hotendTemp: 235,
+    bedTemp: 80,
+    enclosureRequired: false,
+    icon: "💪",
+    color: "#3b82f6",
+    notes: ["Strong and durable", "Slight stringing", "Good layer adhesion"],
   },
   ABS: {
     name: "ABS",
+    displayName: "ABS",
     density: 1.04,
-    costPerGram: 0.022,
-    printSpeed: 55,
+    costPerGram: 0.02,
+    printSpeed: 100,
+    hotendTemp: 245,
+    bedTemp: 90,
+    enclosureRequired: true,
+    icon: "🔥",
+    color: "#f59e0b",
+    notes: ["Requires enclosed chamber", "Heat resistant", "Can warp without enclosure"],
+  },
+  ASA: {
+    name: "ASA",
+    displayName: "ASA",
+    density: 1.07,
+    costPerGram: 0.03,
+    printSpeed: 100,
+    hotendTemp: 255,
+    bedTemp: 95,
+    enclosureRequired: true,
+    icon: "☀️",
+    color: "#ef4444",
+    notes: ["UV resistant", "Outdoor use", "Less warping than ABS"],
   },
   TPU: {
     name: "TPU",
+    displayName: "TPU (Flexible)",
     density: 1.21,
-    costPerGram: 0.035,
-    printSpeed: 30,
+    costPerGram: 0.04,
+    printSpeed: 30,          // TPU needs to go slow
+    hotendTemp: 225,
+    bedTemp: 50,
+    enclosureRequired: false,
+    icon: "🧘",
+    color: "#8b5cf6",
+    notes: ["Flexible and elastic", "Print SLOWLY", "Great for phone cases"],
+  },
+  PA: {
+    name: "PA",
+    displayName: "Nylon (PA)",
+    density: 1.14,
+    costPerGram: 0.05,
+    printSpeed: 60,
+    hotendTemp: 265,
+    bedTemp: 90,
+    enclosureRequired: true,
+    icon: "⚙️",
+    color: "#6366f1",
+    notes: ["Very strong", "Absorbs moisture - dry before use", "Difficult to print"],
+  },
+  PC: {
+    name: "PC",
+    displayName: "Polycarbonate",
+    density: 1.20,
+    costPerGram: 0.06,
+    printSpeed: 50,
+    hotendTemp: 285,
+    bedTemp: 100,
+    enclosureRequired: true,
+    icon: "💎",
+    color: "#ec4899",
+    notes: ["Extremely strong", "Heat resistant to 130°C", "Requires high temps"],
+  },
+  PVA: {
+    name: "PVA",
+    displayName: "PVA (Support)",
+    density: 1.23,
+    costPerGram: 0.08,
+    printSpeed: 40,
+    hotendTemp: 195,
+    bedTemp: 50,
+    enclosureRequired: false,
+    icon: "💧",
+    color: "#a3e635",
+    notes: ["Water soluble", "Support material for PLA", "Store in dry conditions"],
   },
 }
 

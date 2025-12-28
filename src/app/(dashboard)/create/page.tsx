@@ -16,6 +16,7 @@ import ObjectTree from "@/components/editor/ObjectTree"
 import TransformToolbar from "@/components/editor/TransformToolbar"
 import BooleanToolbar from "@/components/editor/BooleanToolbar"
 import PrintAnalysisDashboard from "@/components/analysis/PrintAnalysisDashboard"
+import TemplateBrowser from "@/components/editor/TemplateBrowser"
 import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
 import type { User } from "@supabase/supabase-js"
@@ -338,6 +339,11 @@ export default function CreatePage() {
                 ))}
               </div>
             )}
+
+            {/* P1S Template Browser */}
+            <div className="mt-3 pt-3 border-t border-gray-700">
+              <TemplateBrowser />
+            </div>
           </div>
 
           {/* Error Display */}

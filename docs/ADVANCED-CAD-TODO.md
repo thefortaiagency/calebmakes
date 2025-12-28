@@ -2,7 +2,7 @@
 
 This document tracks the work needed to enable the advanced CAD features that were stubbed out.
 
-## Current Status: Phases 1-6 Complete! 🎉
+## Current Status: Phases 1-6 Complete + P1S Integration! 🎉
 
 **Completed Features:**
 - ✅ Multi-object scene support (generate multiple models, add them to scene)
@@ -27,8 +27,14 @@ This document tracks the work needed to enable the advanced CAD features that we
   - Wall thickness estimation
   - Overhang detection (faces > 45°)
   - Weight, print time, and cost estimates
-  - Material selection (PLA, PETG, ABS, TPU)
+  - Material selection (8 materials with P1S-optimized settings)
   - Printability score (0-100) with issues and suggestions
+- ✅ **Bambu Lab P1S Integration** - NEW!
+  - 5 pre-designed accessory templates with customizable parameters
+  - 8 material profiles with P1S-specific temps and speeds
+  - P1S-optimized print time estimates (max flow, heating time, overhead)
+  - Template browser UI with parameter customization
+  - Material info display (hotend/bed temps, enclosure requirements)
 
 ## Overview
 

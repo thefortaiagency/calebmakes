@@ -41,6 +41,7 @@ import {
   Minus,
   Circle,
   BarChart3,
+  ThermometerSun,
 } from "lucide-react"
 
 interface HelpSectionProps {
@@ -382,6 +383,45 @@ export default function HelpDialog() {
                     <li>Overhang detection</li>
                     <li>Printability score (0-100)</li>
                     <li>Suggestions for better prints</li>
+                  </ul>
+                </HelpSection>
+
+                <div className="border-t border-gray-800 pt-6">
+                  <h4 className="text-xs uppercase tracking-wider text-gray-500 mb-4">
+                    Bambu Lab P1S Templates
+                  </h4>
+                </div>
+
+                <HelpSection icon={<Box className="w-4 h-4" />} title="P1S Accessory Templates">
+                  <p>
+                    Click <strong>P1S Templates</strong> to browse 5 pre-designed accessories
+                    for your Bambu Lab P1S printer:
+                  </p>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li><strong>Magnetic Tool Holder</strong> - Mounts on the frame</li>
+                    <li><strong>Poop Chute & Bin</strong> - Catches filament waste</li>
+                    <li><strong>Dry Box Spool Holder</strong> - Sealed with desiccant</li>
+                    <li><strong>Camera Mount</strong> - With LED ring support</li>
+                    <li><strong>Nozzle Storage Case</strong> - Organized by size</li>
+                  </ul>
+                  <p className="mt-2 text-gray-500">
+                    Each template has adjustable parameters and lists any required non-printed parts.
+                  </p>
+                </HelpSection>
+
+                <HelpSection icon={<ThermometerSun className="w-4 h-4" />} title="Material Profiles">
+                  <p>
+                    8 materials optimized for P1S with accurate print estimates:
+                  </p>
+                  <ul className="list-disc list-inside mt-2 space-y-1 text-xs">
+                    <li><span className="text-green-400">PLA</span> - 210°C, fastest printing</li>
+                    <li><span className="text-blue-400">PETG</span> - 235°C, strong & durable</li>
+                    <li><span className="text-amber-400">ABS</span> - 245°C, enclosed chamber</li>
+                    <li><span className="text-red-400">ASA</span> - 255°C, UV resistant</li>
+                    <li><span className="text-violet-400">TPU</span> - 225°C, flexible</li>
+                    <li><span className="text-indigo-400">Nylon</span> - 265°C, very strong</li>
+                    <li><span className="text-pink-400">PC</span> - 285°C, heat resistant</li>
+                    <li><span className="text-lime-400">PVA</span> - 195°C, water soluble</li>
                   </ul>
                 </HelpSection>
               </div>
