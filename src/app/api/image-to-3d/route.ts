@@ -122,14 +122,16 @@ export async function POST(request: Request) {
     } else if (output && typeof output === "object") {
       const obj = output as Record<string, unknown>
 
-      // TRELLIS outputs: { model: FileOutput, ... }
-      // Try model first (TRELLIS GLB output)
-      if (obj.model) {
-        modelUrl = extractUrl(obj.model)
-        console.log("Found model URL from 'model' property:", modelUrl)
+      // TRELLIS outputs: { model_file: FileOutput, ... }
+      // Try model_file first (TRELLIS GLB output)
+      if (obj.model_file) {
+        modelUrl = extractUrl(obj.model_file)
+        console.log("Found model URL from 'model_file' property:", modelUrl)
       }
       // Fallback to other common property names
-      else if (obj.mesh) {
+      else if (obj.model) {
+        modelUrl = extractUrl(obj.model)
+      } else if (obj.mesh) {
         modelUrl = extractUrl(obj.mesh)
       } else if (obj.output) {
         modelUrl = extractUrl(obj.output)
