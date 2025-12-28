@@ -133,7 +133,7 @@ export default function ModelViewer() {
       <Canvas
         frameloop="demand"
         camera={{ position: [150, 150, 150], fov: 50, near: 1, far: 2000 }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
       >
         <Scene />

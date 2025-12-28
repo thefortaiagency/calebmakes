@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import dynamic from "next/dynamic"
 import { Sparkles, Download, Code2, Sliders, Loader2, AlertCircle, Save, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -143,6 +143,50 @@ export default function CreatePage() {
     }
   }
 
+  // Capture thumbnail from 3D viewer canvas
+  const captureThumbnail = async (): Promise<string | null> => {
+    try {
+      // Find the canvas element in the 3D viewer
+      const canvas = document.querySelector('canvas') as HTMLCanvasElement
+      if (!canvas) return null
+
+      // Get the canvas data as a blob
+      return new Promise((resolve) => {
+        canvas.toBlob(async (blob) => {
+          if (!blob || !user) {
+            resolve(null)
+            return
+          }
+
+          // Upload to Supabase Storage
+          const fileName = `${user.id}/${Date.now()}.png`
+          const { data, error } = await supabase.storage
+            .from('thumbnails')
+            .upload(fileName, blob, {
+              contentType: 'image/png',
+              upsert: true
+            })
+
+          if (error) {
+            console.error('Thumbnail upload error:', error)
+            resolve(null)
+            return
+          }
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('thumbnails')
+            .getPublicUrl(fileName)
+
+          resolve(publicUrl)
+        }, 'image/png', 0.8)
+      })
+    } catch (err) {
+      console.error('Thumbnail capture error:', err)
+      return null
+    }
+  }
+
   const handleSave = async () => {
     if (!user || !code || !response) return
 
@@ -151,6 +195,9 @@ export default function CreatePage() {
 
     try {
       const modelName = response.description?.split(" ").slice(0, 5).join(" ") || "Untitled Model"
+
+      // Capture thumbnail from 3D viewer
+      const thumbnailUrl = await captureThumbnail()
 
       const { error } = await supabase.from("models").insert({
         user_id: user.id,
@@ -163,6 +210,7 @@ export default function CreatePage() {
         dimensions: response.dimensions || { width: 0, depth: 0, height: 0 },
         estimated_print_time: response.estimatedPrintTime,
         notes: response.notes || [],
+        thumbnail_url: thumbnailUrl,
         is_public: false,
       })
 

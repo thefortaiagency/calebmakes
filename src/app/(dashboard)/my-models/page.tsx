@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { FolderHeart, Plus, Printer, MoreVertical, Loader2, LogIn } from "lucide-react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { FolderHeart, Plus, Printer, MoreVertical, Loader2, LogIn, Edit3, Copy, Download, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -9,10 +11,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { createClient } from "@/lib/supabase/client"
+import { useModelStore } from "@/lib/store"
+import { compileJSCAD } from "@/lib/jscad/compiler"
 import type { User } from "@supabase/supabase-js"
+import type { Parameter } from "@/lib/types"
 
 interface Model {
   id: string
@@ -21,13 +27,19 @@ interface Model {
   category: string
   created_at: string
   code: string
+  parameters: Parameter[]
+  thumbnail_url: string | null
+  dimensions: { width: number; depth: number; height: number }
 }
 
 export default function MyModelsPage() {
   const [user, setUser] = useState<User | null>(null)
   const [models, setModels] = useState<Model[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingModel, setLoadingModel] = useState<string | null>(null)
   const supabase = createClient()
+  const router = useRouter()
+  const { setCode, setParameters, setGeometry, setError } = useModelStore()
 
   useEffect(() => {
     const loadData = async () => {
@@ -58,6 +70,58 @@ export default function MyModelsPage() {
 
     if (!error) {
       setModels(models.filter((m) => m.id !== modelId))
+    }
+  }
+
+  const handleEdit = async (model: Model) => {
+    setLoadingModel(model.id)
+    setError(null)
+
+    try {
+      // Load code and parameters into the store
+      setCode(model.code)
+      setParameters(model.parameters || [])
+
+      // Compile the model
+      const defaultParams = (model.parameters || []).reduce(
+        (acc, p) => ({ ...acc, [p.name]: p.default }),
+        {}
+      )
+      const geom = await compileJSCAD(model.code, defaultParams)
+      setGeometry(geom)
+
+      // Navigate to create page
+      router.push("/create")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load model")
+    } finally {
+      setLoadingModel(null)
+    }
+  }
+
+  const handleDuplicate = async (model: Model) => {
+    if (!user) return
+
+    const { error } = await supabase.from("models").insert({
+      user_id: user.id,
+      name: `${model.name} (Copy)`,
+      description: model.description,
+      code: model.code,
+      parameters: model.parameters,
+      category: model.category,
+      dimensions: model.dimensions,
+      thumbnail_url: model.thumbnail_url,
+      is_public: false,
+    })
+
+    if (!error) {
+      // Reload models
+      const { data: newModels } = await supabase
+        .from("models")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+      setModels(newModels || [])
     }
   }
 
@@ -153,11 +217,24 @@ export default function MyModelsPage() {
               <Card
                 key={model.id}
                 className="bg-gray-900/50 border-gray-800 hover:border-orange-500/30 transition-all duration-300 cursor-pointer group"
+                onClick={() => handleEdit(model)}
               >
                 <CardContent className="p-4">
                   {/* Preview */}
-                  <div className="aspect-square rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 mb-4 flex items-center justify-center relative">
-                    <Printer className="w-12 h-12 text-gray-600" />
+                  <div className="aspect-square rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 mb-4 flex items-center justify-center relative overflow-hidden">
+                    {loadingModel === model.id ? (
+                      <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+                    ) : model.thumbnail_url ? (
+                      <Image
+                        src={model.thumbnail_url}
+                        alt={model.name}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      />
+                    ) : (
+                      <Printer className="w-12 h-12 text-gray-600" />
+                    )}
 
                     {/* Actions */}
                     <DropdownMenu>
@@ -165,19 +242,27 @@ export default function MyModelsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900/80 hover:bg-gray-800"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                        <DropdownMenuItem>Download STL</DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(model) }}>
+                          <Edit3 className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(model) }}>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-red-400"
-                          onClick={() => handleDelete(model.id)}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(model.id) }}
                         >
+                          <Trash2 className="w-4 h-4 mr-2" />
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -188,9 +273,14 @@ export default function MyModelsPage() {
                   <h3 className="font-semibold group-hover:text-orange-400 transition-colors truncate">
                     {model.name}
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-gray-500 mt-1 truncate">
                     {model.category} • {formatDate(model.created_at)}
                   </p>
+                  {model.dimensions && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      {model.dimensions.width} x {model.dimensions.depth} x {model.dimensions.height} mm
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ))}
