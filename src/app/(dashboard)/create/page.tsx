@@ -23,6 +23,7 @@ import BooleanToolbar from "@/components/editor/BooleanToolbar"
 import PrintAnalysisDashboard from "@/components/analysis/PrintAnalysisDashboard"
 import ImageToSurface from "@/components/editor/ImageToSurface"
 import PolygonDrawer from "@/components/editor/PolygonDrawer"
+import ImagineIt from "@/components/editor/ImagineIt"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
@@ -271,6 +272,22 @@ function CreatePageContent() {
 
     // Switch to viewer on mobile
     setMobileShowViewer(true)
+  }, [setGeometry, setCode, setParameters])
+
+  // Handle "Imagine It" 3D model generation
+  const handleImagineModel = useCallback((generatedGeometry: NonNullable<typeof geometry>, name: string) => {
+    // Set the geometry for display
+    setGeometry(generatedGeometry)
+    setModelName(name)
+    setCode("")
+    setParameters([])
+
+    // Switch to viewer on mobile
+    setMobileShowViewer(true)
+
+    toast.success("3D model created!", {
+      description: `${name} is ready for preview and export.`,
+    })
   }, [setGeometry, setCode, setParameters])
 
   // Handle polygon drawing completion
@@ -940,6 +957,11 @@ function CreatePageContent() {
               <p className="text-xs text-gray-500 text-center">
                 Create cookie cutters, logos, custom outlines
               </p>
+            </div>
+
+            {/* Imagine It - AI Image to 3D */}
+            <div className="p-4 border-b border-gray-800">
+              <ImagineIt onModelGenerated={handleImagineModel} />
             </div>
 
             {/* Image to Surface / Lithophane */}
