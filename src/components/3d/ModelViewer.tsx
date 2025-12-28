@@ -27,8 +27,8 @@ function ModelMesh() {
   const meshRef = useRef<THREE.Mesh>(null)
   const geometry = useModelStore((state) => state.geometry)
 
-  const bufferGeometry = useMemo(() => {
-    if (!geometry) return null
+  const { bufferGeometry, offset } = useMemo(() => {
+    if (!geometry) return { bufferGeometry: null, offset: [0, 0, 0] as [number, number, number] }
 
     const geo = new THREE.BufferGeometry()
     geo.setAttribute("position", new THREE.BufferAttribute(geometry.vertices, 3))
@@ -40,13 +40,26 @@ function ModelMesh() {
       geo.computeVertexNormals()
     }
 
+    // Compute bounding box to center and position the model
+    geo.computeBoundingBox()
+    const box = geo.boundingBox!
+
+    // Calculate offset to center X/Z and put bottom on the floor (Y=0)
+    const centerX = -(box.min.x + box.max.x) / 2
+    const centerZ = -(box.min.z + box.max.z) / 2
+    const bottomY = -box.min.y // Move up so bottom is at Y=0
+
     geo.computeBoundingSphere()
-    return geo
+
+    return {
+      bufferGeometry: geo,
+      offset: [centerX, bottomY, centerZ] as [number, number, number]
+    }
   }, [geometry])
 
   if (!bufferGeometry) {
     return (
-      <mesh>
+      <mesh position={[0, 15, 0]}>
         <boxGeometry args={[30, 30, 30]} />
         <meshStandardMaterial color="#666" wireframe opacity={0.3} transparent />
       </mesh>
@@ -54,7 +67,7 @@ function ModelMesh() {
   }
 
   return (
-    <mesh ref={meshRef} geometry={bufferGeometry}>
+    <mesh ref={meshRef} geometry={bufferGeometry} position={offset}>
       <meshStandardMaterial
         color="#00d4ff"
         metalness={0.1}
