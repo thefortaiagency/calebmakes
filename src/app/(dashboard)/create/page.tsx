@@ -107,6 +107,7 @@ function CreatePageContent() {
   const [isForking, setIsForking] = useState(false)
   const [parsedOpenSCAD, setParsedOpenSCAD] = useState<ParsedOpenSCAD | null>(null)
   const [showPolygonDrawer, setShowPolygonDrawer] = useState(false)
+  const [editModelId, setEditModelId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -156,6 +157,20 @@ function CreatePageContent() {
   // Load template and parameters from URL on mount
   useEffect(() => {
     if (urlParamsLoaded) return
+
+    // Check if we're editing an existing model
+    const editId = searchParams.get("editModelId")
+    if (editId) {
+      setEditModelId(editId)
+      // Model data is already loaded into store by my-models page
+      // Just sync the model name from store
+      if (storeModelName && storeModelName !== "Untitled Model") {
+        setModelName(storeModelName)
+      }
+      setUrlParamsLoaded(true)
+      setMobileShowViewer(true)
+      return
+    }
 
     const templateId = searchParams.get("template")
     if (!templateId) {
@@ -221,7 +236,7 @@ function CreatePageContent() {
     compileFromUrl()
 
     setUrlParamsLoaded(true)
-  }, [searchParams, urlParamsLoaded, setCode, setParameters, setParameterValue, setGeometry, setError, setStoreModelName])
+  }, [searchParams, urlParamsLoaded, setCode, setParameters, setParameterValue, setGeometry, setError, setStoreModelName, storeModelName])
 
   // Reset everything to start fresh
   const handleReset = useCallback(() => {
@@ -239,6 +254,7 @@ function CreatePageContent() {
     setShowShareModal(false)
     setShareableUrl("")
     setParsedOpenSCAD(null)
+    setEditModelId(null)
     // Update URL to remove query params without reload
     window.history.replaceState({}, "", "/create")
   }, [setCode, setGeometry, setParameters, setError])
@@ -474,7 +490,9 @@ function CreatePageContent() {
   }
 
   const handleSave = async () => {
-    if (!user || !code) return
+    // Allow saving if user is logged in and has either code or geometry
+    const geometryToSave = editorObjects.length > 0 ? editorObjects[0]?.geometry : geometry
+    if (!user || (!code && !geometryToSave)) return
 
     setIsSaving(true)
     setSaveSuccess(false)
@@ -482,24 +500,79 @@ function CreatePageContent() {
     try {
       const thumbnailUrl = await captureThumbnail()
 
-      const { error } = await supabase.from("models").insert({
+      // Calculate dimensions from geometry
+      let dimensions = response?.dimensions || { width: 0, depth: 0, height: 0 }
+      if (geometryToSave) {
+        const bounds = calculateBounds(geometryToSave)
+        dimensions = {
+          width: Math.round(bounds.size[0]),
+          depth: Math.round(bounds.size[1]),
+          height: Math.round(bounds.size[2]),
+        }
+      }
+
+      // Prepare geometry URL for models without code (STL imports, AI generated)
+      let geometryUrl: string | null = null
+      const isCodelessModel = !code || code.trim() === ""
+      if (isCodelessModel && geometryToSave) {
+        try {
+          const geometryData = {
+            vertices: Array.from(geometryToSave.vertices),
+            indices: Array.from(geometryToSave.indices),
+            normals: Array.from(geometryToSave.normals),
+          }
+          const geometryBlob = new Blob([JSON.stringify(geometryData)], { type: "application/json" })
+          const geometryFileName = `${user.id}/${Date.now()}_geometry.json`
+
+          const { error: geoError } = await supabase.storage
+            .from("thumbnails")
+            .upload(geometryFileName, geometryBlob, { contentType: "application/json", upsert: true })
+
+          if (!geoError) {
+            const { data: geoData } = supabase.storage.from("thumbnails").getPublicUrl(geometryFileName)
+            geometryUrl = geoData.publicUrl
+          }
+        } catch (geoErr) {
+          console.error("Failed to save geometry:", geoErr)
+        }
+      }
+
+      const modelData = {
         user_id: user.id,
         name: modelName || "Untitled Model",
-        description: response?.description || `Custom parametric model with ${parameters.length} parameters`,
-        code: code,
+        description: response?.description || (code ? `Custom parametric model with ${parameters.length} parameters` : "Imported/Generated model"),
+        code: code || "// Imported model - no parametric code",
         parameters: response?.parameters || parameters,
         category: response?.category || "custom",
         difficulty: response?.difficulty || "easy",
-        dimensions: response?.dimensions || { width: 0, depth: 0, height: 0 },
+        dimensions,
         estimated_print_time: response?.estimatedPrintTime || "Varies",
         notes: response?.notes || [],
         thumbnail_url: thumbnailUrl,
+        geometry_url: geometryUrl,
         is_public: false,
-      })
+      }
+
+      let error
+      if (editModelId) {
+        // Update existing model
+        const result = await supabase
+          .from("models")
+          .update(modelData)
+          .eq("id", editModelId)
+        error = result.error
+      } else {
+        // Insert new model
+        const result = await supabase.from("models").insert(modelData)
+        error = result.error
+      }
 
       if (error) throw error
 
       setSaveSuccess(true)
+      toast.success(editModelId ? "Model updated!" : "Model saved!", {
+        description: `${modelName} has been saved to My Models.`,
+      })
       setTimeout(() => setSaveSuccess(false), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save model")
@@ -1064,14 +1137,14 @@ function CreatePageContent() {
                 <span className="hidden lg:inline">Add to Scene</span>
               </Button>
             )}
-            {user && code && (
+            {user && (editModelId || code || geometry) && (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={handleSave}
                 disabled={isSaving}
                 className="bg-gray-800/80 backdrop-blur-sm"
-                title="Save to My Models"
+                title={editModelId ? "Update model" : "Save to My Models"}
               >
                 {isSaving ? (
                   <Loader2 className="w-4 h-4 animate-spin lg:mr-2" />
@@ -1080,7 +1153,7 @@ function CreatePageContent() {
                 ) : (
                   <Save className="w-4 h-4 lg:mr-2" />
                 )}
-                <span className="hidden lg:inline">{saveSuccess ? "Saved!" : "Save"}</span>
+                <span className="hidden lg:inline">{saveSuccess ? "Saved!" : editModelId ? "Update" : "Save"}</span>
               </Button>
             )}
             {code && (currentTemplateId || TEMPLATES.some((t) => t.code.trim() === code.trim())) && (

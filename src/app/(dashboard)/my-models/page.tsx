@@ -48,7 +48,7 @@ export default function MyModelsPage() {
   const [thumbnailGeometry, setThumbnailGeometry] = useState<GeometryData | null>(null)
   const supabase = createClient()
   const router = useRouter()
-  const { setCode, setParameters, setGeometry, setError } = useModelStore()
+  const { setCode, setParameters, setGeometry, setError, setModelName } = useModelStore()
 
   useEffect(() => {
     const loadData = async () => {
@@ -87,6 +87,9 @@ export default function MyModelsPage() {
     setError(null)
 
     try {
+      // Set the model name first
+      setModelName(model.name)
+
       // Check if this is an STL import (has geometry_url or placeholder code)
       const isStlImport = model.geometry_url ||
         !model.code ||
@@ -122,8 +125,8 @@ export default function MyModelsPage() {
         throw new Error("This STL model was saved before geometry storage was added. Please re-import the STL file.")
       }
 
-      // Navigate to create page
-      router.push("/create")
+      // Navigate to create page with model ID for editing
+      router.push(`/create?editModelId=${model.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load model")
       setLoadingModel(null)
