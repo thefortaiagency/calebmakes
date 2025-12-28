@@ -43,8 +43,11 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {/* WHITE HERO SECTION */}
-      <section className="relative bg-white px-8 py-16 min-h-[600px]">
+      {/* WHITE HERO SECTION - Force white with inline style to override dark mode */}
+      <section
+        className="relative px-8 py-16 min-h-[600px]"
+        style={{ backgroundColor: '#ffffff', color: '#000000' }}
+      >
         <div className="max-w-4xl mx-auto text-center">
           {/* Logo with Glow */}
           <div className="mb-8">
