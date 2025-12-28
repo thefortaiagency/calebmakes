@@ -35,6 +35,8 @@ import {
   Lock,
   Copy,
   Trash2,
+  Ruler,
+  Triangle,
 } from "lucide-react"
 
 interface HelpSectionProps {
@@ -304,6 +306,32 @@ export default function HelpDialog() {
                 <HelpSection icon={<RotateCw className="w-4 h-4" />} title="Reset Transform">
                   <p>
                     Reset the selected object back to its original position, rotation, and scale.
+                  </p>
+                </HelpSection>
+
+                <div className="border-t border-gray-800 pt-6">
+                  <h4 className="text-xs uppercase tracking-wider text-gray-500 mb-4">
+                    Measurement Tools
+                  </h4>
+                </div>
+
+                <HelpSection icon={<Ruler className="w-4 h-4" />} title="Distance Measurement">
+                  <p>
+                    Click the <strong>Ruler</strong> button, then click two points on any model
+                    to measure the distance between them.
+                  </p>
+                  <p className="mt-2">
+                    Distance is shown in millimeters. Click the label to delete the measurement.
+                  </p>
+                </HelpSection>
+
+                <HelpSection icon={<Triangle className="w-4 h-4" />} title="Angle Measurement">
+                  <p>
+                    Click the <strong>Angle</strong> button, then click three points.
+                    The angle is measured at the second (middle) point.
+                  </p>
+                  <p className="mt-2">
+                    Angle is shown in degrees. Click the label to delete the measurement.
                   </p>
                 </HelpSection>
               </div>

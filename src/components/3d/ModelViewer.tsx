@@ -8,6 +8,7 @@ import { useModelStore } from "@/lib/store"
 import { useEditorStore, useSelectedObjectIds } from "@/lib/stores/editor-store"
 import type { SceneObject, Vector3 } from "@/lib/types/editor"
 import type { GeometryData } from "@/lib/types"
+import MeasurementTool from "./MeasurementTool"
 
 function Loader() {
   const { progress } = useProgress()
@@ -300,6 +301,7 @@ function Scene() {
       <Suspense fallback={<Loader />}>
         <SceneObjects />
         <SelectedObjectGizmo />
+        <MeasurementTool />
       </Suspense>
 
       {/* Legacy single model (backwards compatibility) */}

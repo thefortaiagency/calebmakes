@@ -13,6 +13,8 @@ import {
   Redo2,
   Grid3X3,
   Box,
+  Ruler,
+  Triangle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ToolType } from "@/lib/types/editor"
@@ -59,11 +61,19 @@ export default function TransformToolbar() {
   const hasSelection = selectedIds.length > 0
   const selectedId = selectedIds[0]
 
+  const activeMeasurementPoints = useEditorStore((state) => state.activeMeasurementPoints)
+  const clearMeasurementPoints = useEditorStore((state) => state.clearMeasurementPoints)
+
   const tools: { tool: ToolType; icon: React.ReactNode; label: string }[] = [
     { tool: "select", icon: <MousePointer className="w-4 h-4" />, label: "Select (V)" },
     { tool: "translate", icon: <Move className="w-4 h-4" />, label: "Move (G)" },
     { tool: "rotate", icon: <RotateCw className="w-4 h-4" />, label: "Rotate (R)" },
     { tool: "scale", icon: <Maximize className="w-4 h-4" />, label: "Scale (S)" },
+  ]
+
+  const measureTools: { tool: ToolType; icon: React.ReactNode; label: string }[] = [
+    { tool: "ruler", icon: <Ruler className="w-4 h-4" />, label: "Measure Distance" },
+    { tool: "angle", icon: <Triangle className="w-4 h-4" />, label: "Measure Angle" },
   ]
 
   return (
@@ -126,6 +136,36 @@ export default function TransformToolbar() {
             <RotateCcw className="w-4 h-4" />
           </Button>
         </>
+      )}
+
+      <div className="w-px h-6 bg-gray-600 mx-1" />
+
+      {/* Measurement Tools */}
+      {measureTools.map(({ tool, icon, label }) => (
+        <ToolButton
+          key={tool}
+          tool={tool}
+          icon={icon}
+          label={label}
+          activeTool={activeTool}
+          onClick={() => {
+            if (activeTool === tool) {
+              // If clicking active measurement tool, switch to select and clear points
+              setActiveTool("select")
+              clearMeasurementPoints()
+            } else {
+              setActiveTool(tool)
+              clearMeasurementPoints()
+            }
+          }}
+        />
+      ))}
+
+      {/* Show point count when measuring */}
+      {(activeTool === "ruler" || activeTool === "angle") && activeMeasurementPoints.length > 0 && (
+        <span className="text-xs text-cyan-400 ml-1">
+          {activeMeasurementPoints.length}/{activeTool === "ruler" ? 2 : 3}
+        </span>
       )}
 
       <div className="w-px h-6 bg-gray-600 mx-1" />

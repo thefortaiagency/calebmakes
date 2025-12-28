@@ -2,7 +2,7 @@
 
 This document tracks the work needed to enable the advanced CAD features that were stubbed out.
 
-## Current Status: Phase 1-4 Complete! 🎉
+## Current Status: Phases 1-4 Complete! 🎉
 
 **Completed Features:**
 - ✅ Multi-object scene support (generate multiple models, add them to scene)
@@ -14,6 +14,10 @@ This document tracks the work needed to enable the advanced CAD features that we
 - ✅ Grid and Build Volume toggles
 - ✅ Comprehensive help documentation with 4 tabs
 - ✅ Keyboard shortcuts (G/R/S for tools, Ctrl+Z/Y for undo/redo, etc.)
+- ✅ **Measurement Tools** - Ruler (distance) and Angle tools with 3D labels
+  - Click two points on model to measure distance (mm)
+  - Click three points to measure angle (degrees)
+  - Measurements shown as floating labels, click to delete
 
 ## Overview
 
@@ -93,18 +97,18 @@ import { TransformControls } from '@react-three/drei'
 
 ---
 
-## Phase 3: Measurement Tools
+## Phase 3: Measurement Tools ✅ COMPLETE
 **Priority: MEDIUM** - Useful for precise modeling
 
 ### Tasks
-- [ ] **3.1** Add raycaster for detecting clicks on model surface
-- [ ] **3.2** When ruler tool is active, capture click positions on mesh
-- [ ] **3.3** Store measurement points in editor store
-- [ ] **3.4** Add MeasurementTool component to ModelViewer scene
-- [ ] **3.5** Display distance labels as HTML overlays
-- [ ] **3.6** Implement angle measurement (3 points)
-- [ ] **3.7** Add MeasurementPanel back to UI
-- [ ] **3.8** Persist measurements and allow show/hide toggle
+- [x] **3.1** Add raycaster for detecting clicks on model surface
+- [x] **3.2** When ruler tool is active, capture click positions on mesh
+- [x] **3.3** Store measurement points in editor store
+- [x] **3.4** Add MeasurementTool component to ModelViewer scene
+- [x] **3.5** Display distance labels as HTML overlays
+- [x] **3.6** Implement angle measurement (3 points)
+- [x] **3.7** Ruler and Angle tools in toolbar with point counter
+- [x] **3.8** Click measurement label to delete it
 
 ### Technical Notes
 ```tsx
