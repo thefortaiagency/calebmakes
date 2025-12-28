@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Library, Search, Filter, Star, Sparkles } from "lucide-react"
+import { Library, Search, Filter, Star, Sparkles, ArrowUpDown, LayoutGrid, List, Clock, Gauge } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,9 +18,30 @@ import { TEMPLATES, CATEGORIES } from "@/lib/templates"
 import { useModelStore } from "@/lib/store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 
+type SortOption = "name" | "difficulty" | "printTime" | "category"
+type ViewMode = "grid" | "list"
+type DifficultyFilter = "all" | "easy" | "medium" | "hard"
+
+const DIFFICULTY_ORDER = { easy: 1, medium: 2, hard: 3, advanced: 4 }
+const SORT_OPTIONS = [
+  { value: "name", label: "Name (A-Z)" },
+  { value: "difficulty", label: "Difficulty" },
+  { value: "printTime", label: "Print Time" },
+  { value: "category", label: "Category" },
+]
+const DIFFICULTY_OPTIONS = [
+  { value: "all", label: "All Difficulties" },
+  { value: "easy", label: "Easy" },
+  { value: "medium", label: "Medium" },
+  { value: "hard", label: "Hard / Advanced" },
+]
+
 export default function LibraryPage() {
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("all")
+  const [difficulty, setDifficulty] = useState<DifficultyFilter>("all")
+  const [sortBy, setSortBy] = useState<SortOption>("name")
+  const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [loading, setLoading] = useState<string | null>(null)
   const router = useRouter()
 
@@ -31,13 +52,48 @@ export default function LibraryPage() {
     setError,
   } = useModelStore()
 
-  const filteredTemplates = TEMPLATES.filter((template) => {
-    const matchesSearch =
-      template.name.toLowerCase().includes(search.toLowerCase()) ||
-      template.description.toLowerCase().includes(search.toLowerCase())
-    const matchesCategory = category === "all" || template.category === category
-    return matchesSearch && matchesCategory
-  })
+  // Parse print time string to minutes for sorting
+  const parsePrintTime = (timeStr: string): number => {
+    const match = timeStr.match(/(\d+(?:\.\d+)?)\s*(min|h|hr|hour)/i)
+    if (!match) return 999
+    const value = parseFloat(match[1])
+    const unit = match[2].toLowerCase()
+    if (unit.startsWith('h')) return value * 60
+    return value
+  }
+
+  const filteredTemplates = useMemo(() => {
+    let templates = TEMPLATES.filter((template) => {
+      const matchesSearch =
+        template.name.toLowerCase().includes(search.toLowerCase()) ||
+        template.description.toLowerCase().includes(search.toLowerCase()) ||
+        (template.tags?.some(tag => tag.toLowerCase().includes(search.toLowerCase())))
+      const matchesCategory = category === "all" || template.category === category
+      const matchesDifficulty = difficulty === "all" ||
+        template.difficulty === difficulty ||
+        (difficulty === "hard" && template.difficulty === "advanced")
+      return matchesSearch && matchesCategory && matchesDifficulty
+    })
+
+    // Sort templates
+    templates.sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name)
+        case "difficulty":
+          return (DIFFICULTY_ORDER[a.difficulty as keyof typeof DIFFICULTY_ORDER] || 5) -
+                 (DIFFICULTY_ORDER[b.difficulty as keyof typeof DIFFICULTY_ORDER] || 5)
+        case "printTime":
+          return parsePrintTime(a.estimatedPrintTime) - parsePrintTime(b.estimatedPrintTime)
+        case "category":
+          return a.category.localeCompare(b.category)
+        default:
+          return 0
+      }
+    })
+
+    return templates
+  }, [search, category, difficulty, sortBy])
 
   const handleCustomize = async (templateId: string) => {
     const template = TEMPLATES.find((t) => t.id === templateId)
@@ -85,35 +141,92 @@ export default function LibraryPage() {
       </div>
 
       {/* Filters */}
-      <div className="p-3 sm:p-4 border-b border-gray-800 flex flex-col sm:flex-row gap-3 sm:gap-4">
-        <div className="relative flex-1 sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-          <Input
-            placeholder="Search templates..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-gray-800 border-gray-700"
-          />
+      <div className="p-3 sm:p-4 border-b border-gray-800 space-y-3">
+        {/* Row 1: Search and View Toggle */}
+        <div className="flex gap-3 items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Input
+              placeholder="Search templates..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 bg-gray-800 border-gray-700"
+            />
+          </div>
+          {/* View toggle */}
+          <div className="flex items-center bg-gray-800 border border-gray-700 rounded-md overflow-hidden">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`p-2 transition-colors ${viewMode === "grid" ? "bg-cyan-600 text-white" : "text-gray-400 hover:text-white"}`}
+              title="Grid view"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-2 transition-colors ${viewMode === "list" ? "bg-cyan-600 text-white" : "text-gray-400 hover:text-white"}`}
+              title="List view"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-full sm:w-48 bg-gray-800 border-gray-700">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {CATEGORIES.map((cat) => (
-              <SelectItem key={cat.value} value={cat.value}>
-                {cat.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+        {/* Row 2: Category, Difficulty, Sort */}
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger className="w-full sm:w-44 bg-gray-800 border-gray-700">
+              <Filter className="w-4 h-4 mr-2 text-gray-500" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CATEGORIES.map((cat) => (
+                <SelectItem key={cat.value} value={cat.value}>
+                  {cat.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={difficulty} onValueChange={(v) => setDifficulty(v as DifficultyFilter)}>
+            <SelectTrigger className="w-full sm:w-40 bg-gray-800 border-gray-700">
+              <Gauge className="w-4 h-4 mr-2 text-gray-500" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DIFFICULTY_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+            <SelectTrigger className="w-full sm:w-40 bg-gray-800 border-gray-700">
+              <ArrowUpDown className="w-4 h-4 mr-2 text-gray-500" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Results count */}
+          <div className="flex items-center text-sm text-gray-500 ml-auto">
+            {filteredTemplates.length} template{filteredTemplates.length !== 1 ? "s" : ""}
+          </div>
+        </div>
       </div>
 
-      {/* Grid */}
+      {/* Templates */}
       <div className="flex-1 overflow-auto p-4 sm:p-6">
-        {/* Featured Section */}
-        {featuredTemplates.length > 0 && category === "all" && (
+        {/* Featured Section (grid view only) */}
+        {viewMode === "grid" && featuredTemplates.length > 0 && category === "all" && (
           <div className="mb-6 sm:mb-8">
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
@@ -135,19 +248,33 @@ export default function LibraryPage() {
 
         {/* All Templates */}
         <div>
-          {category === "all" && featuredTemplates.length > 0 && (
+          {viewMode === "grid" && category === "all" && featuredTemplates.length > 0 && (
             <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">All Templates</h2>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {(category === "all" ? otherTemplates : filteredTemplates).map((template) => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                loading={loading === template.id}
-                onCustomize={handleCustomize}
-              />
-            ))}
-          </div>
+
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              {(category === "all" ? otherTemplates : filteredTemplates).map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  loading={loading === template.id}
+                  onCustomize={handleCustomize}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredTemplates.map((template) => (
+                <TemplateListItem
+                  key={template.id}
+                  template={template}
+                  loading={loading === template.id}
+                  onCustomize={handleCustomize}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {filteredTemplates.length === 0 && (
@@ -261,5 +388,70 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
         </Button>
       </CardContent>
     </Card>
+  )
+}
+
+// Compact list item for list view
+function TemplateListItem({ template, loading, onCustomize }: Omit<TemplateCardProps, "featured">) {
+  const [imageError, setImageError] = useState(false)
+
+  return (
+    <div
+      className="flex items-center gap-4 p-3 bg-gray-900/50 border border-gray-800 rounded-lg hover:border-cyan-500/30 transition-colors cursor-pointer group"
+      onClick={() => onCustomize(template.id)}
+    >
+      {/* Thumbnail */}
+      <div className="w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 flex-shrink-0">
+        {imageError ? (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500/10 to-purple-500/10">
+            <Library className="w-6 h-6 text-cyan-400" />
+          </div>
+        ) : (
+          <img
+            src={`/templates/${template.id}.png`}
+            alt={template.name}
+            className="w-full h-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-gray-200 group-hover:text-cyan-400 transition-colors truncate">
+          {template.featured && <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 inline mr-1" />}
+          {template.name}
+        </h3>
+        <p className="text-sm text-gray-500 line-clamp-1">{template.description}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <Badge variant="secondary" className="text-xs capitalize">
+            {template.difficulty}
+          </Badge>
+          <span className="text-xs text-gray-500">{template.estimatedPrintTime}</span>
+          <span className="text-xs text-cyan-400">{template.parameters.length} params</span>
+        </div>
+      </div>
+
+      {/* Action */}
+      <Button
+        onClick={(e) => {
+          e.stopPropagation()
+          onCustomize(template.id)
+        }}
+        disabled={loading}
+        variant="secondary"
+        size="sm"
+        className="bg-gray-800 hover:bg-cyan-500/20 hover:text-cyan-400 flex-shrink-0"
+      >
+        {loading ? (
+          <Sparkles className="w-4 h-4 animate-pulse" />
+        ) : (
+          <>
+            <Sparkles className="w-4 h-4 mr-2" />
+            Customize
+          </>
+        )}
+      </Button>
+    </div>
   )
 }

@@ -43,6 +43,17 @@ export const JSCADResponseSchema = z.object({
     "gaming",
     "gridfinity",
     "keyboard",
+    // P1S / Printer categories
+    "p1s-accessories",
+    "calibration",
+    "functional",
+    "organization",
+    "mechanical",
+    "electronics",
+    "containers",
+    "household",
+    "toys-games",
+    "maker-tools",
   ]),
 })
 
