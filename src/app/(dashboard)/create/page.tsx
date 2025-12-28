@@ -2,15 +2,24 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Code2, Sliders, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb } from "lucide-react"
+import { Sparkles, Download, Sliders, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Layers, BarChart3, History, Ruler } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { useModelStore } from "@/lib/store"
+import { useEditorStore } from "@/lib/stores/editor-store"
+import { useEditorKeyboardShortcuts } from "@/hooks/useEditorKeyboardShortcuts"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import { downloadSTL } from "@/lib/jscad/stl-export"
 import ParameterControls from "@/components/editor/ParameterControls"
+import EditorToolbar from "@/components/editor/EditorToolbar"
+import TransformPanel from "@/components/editor/TransformPanel"
+import ObjectTree from "@/components/editor/ObjectTree"
+import HistoryPanel from "@/components/editor/HistoryPanel"
+import MeasurementPanel from "@/components/editor/MeasurementPanel"
+import BooleanToolbar from "@/components/editor/BooleanToolbar"
+import PrintAnalysisDashboard from "@/components/analysis/PrintAnalysisDashboard"
 import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
 import type { User } from "@supabase/supabase-js"
@@ -64,7 +73,11 @@ export default function CreatePage() {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [showIdeas, setShowIdeas] = useState(false)
   const [mobileShowViewer, setMobileShowViewer] = useState(false)
+  const [rightPanel, setRightPanel] = useState<"properties" | "analysis" | "history" | "measure">("properties")
   const supabase = createClient()
+
+  // Enable keyboard shortcuts
+  useEditorKeyboardShortcuts()
 
   // Get user on mount
   useEffect(() => {
@@ -88,7 +101,11 @@ export default function CreatePage() {
     setIsCompiling,
     error,
     setError,
+    modelColor,
   } = useModelStore()
+
+  const importGeometryAsObject = useEditorStore((state) => state.importGeometryAsObject)
+  const objects = useEditorStore((state) => state.objects)
 
   // Compile code when it changes or parameters change
   const compileModel = useCallback(async () => {
@@ -146,6 +163,17 @@ export default function CreatePage() {
       )
       setGeometry(geom)
 
+      // Import as scene object for the new editor system
+      if (geom) {
+        importGeometryAsObject(
+          data.description?.split(" ").slice(0, 4).join(" ") || "Generated Model",
+          geom,
+          data.code,
+          data.parameters.reduce((acc, p) => ({ ...acc, [p.name]: p.default }), {}),
+          modelColor
+        )
+      }
+
       // On mobile, automatically show the 3D viewer after generation
       setMobileShowViewer(true)
     } catch (err) {
@@ -173,11 +201,9 @@ export default function CreatePage() {
   // Capture thumbnail from 3D viewer canvas
   const captureThumbnail = async (): Promise<string | null> => {
     try {
-      // Find the canvas element in the 3D viewer
       const canvas = document.querySelector('canvas') as HTMLCanvasElement
       if (!canvas) return null
 
-      // Get the canvas data as a blob
       return new Promise((resolve) => {
         canvas.toBlob(async (blob) => {
           if (!blob || !user) {
@@ -185,7 +211,6 @@ export default function CreatePage() {
             return
           }
 
-          // Upload to Supabase Storage
           const fileName = `${user.id}/${Date.now()}.png`
           const { data, error } = await supabase.storage
             .from('thumbnails')
@@ -200,7 +225,6 @@ export default function CreatePage() {
             return
           }
 
-          // Get public URL
           const { data: { publicUrl } } = supabase.storage
             .from('thumbnails')
             .getPublicUrl(fileName)
@@ -222,8 +246,6 @@ export default function CreatePage() {
 
     try {
       const modelName = response.description?.split(" ").slice(0, 5).join(" ") || "Untitled Model"
-
-      // Capture thumbnail from 3D viewer
       const thumbnailUrl = await captureThumbnail()
 
       const { error } = await supabase.from("models").insert({
@@ -253,305 +275,237 @@ export default function CreatePage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-full">
-      {/* Left Panel - Input & Parameters */}
-      <div className={`w-full lg:w-96 border-b lg:border-b-0 lg:border-r border-gray-800 flex flex-col bg-gray-900/50 ${mobileShowViewer ? 'hidden lg:flex' : 'flex'}`}>
-        {/* Header */}
-        <div className="p-4 border-b border-gray-800">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-cyan-400" />
-            Create with AI
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Describe what you want to 3D print
-          </p>
-        </div>
+    <div className="flex flex-col h-full">
+      {/* Top Toolbar */}
+      <EditorToolbar />
 
-        {/* Prompt Input */}
-        <div className="p-4 border-b border-gray-800">
-          <Textarea
-            placeholder="I want to make a phone stand with a cable slot..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            className="min-h-[80px] lg:min-h-[100px] bg-gray-800 border-gray-700 resize-none"
-          />
+      <div className="flex flex-1 min-h-0">
+        {/* Left Panel - Objects & Input */}
+        <div className={`w-72 border-r border-gray-800 flex flex-col bg-gray-900/50 ${mobileShowViewer ? 'hidden lg:flex' : 'flex'}`}>
+          {/* Object Tree */}
+          <div className="h-48 border-b border-gray-800">
+            <ObjectTree />
+          </div>
 
-          <Button
-            onClick={() => handleGenerate()}
-            disabled={isGenerating || !prompt.trim()}
-            className="w-full mt-3 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate Model
-              </>
-            )}
-          </Button>
+          {/* AI Generation Section */}
+          <div className="p-3 border-b border-gray-800">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-sm font-semibold text-gray-300">Create with AI</h3>
+            </div>
+            <Textarea
+              placeholder="Describe what you want..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="min-h-[60px] bg-gray-800 border-gray-700 resize-none text-sm"
+            />
+            <Button
+              onClick={() => handleGenerate()}
+              disabled={isGenerating || !prompt.trim()}
+              size="sm"
+              className="w-full mt-2 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3 h-3 mr-2" />
+                  Generate
+                </>
+              )}
+            </Button>
 
-          {/* Quick Suggestions - Expandable */}
-          <div className="mt-3">
+            {/* Quick Ideas Toggle */}
             <button
               onClick={() => setShowIdeas(!showIdeas)}
-              className="flex items-center gap-2 text-sm text-gray-400 hover:text-cyan-400 transition-colors w-full"
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-cyan-400 transition-colors mt-2"
             >
-              <Lightbulb className="w-4 h-4" />
-              <span>Need ideas?</span>
-              {showIdeas ? <ChevronUp className="w-4 h-4 ml-auto" /> : <ChevronDown className="w-4 h-4 ml-auto" />}
+              <Lightbulb className="w-3 h-3" />
+              <span>Ideas</span>
+              {showIdeas ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
             </button>
 
             {showIdeas && (
-              <div className="mt-3 max-h-48 overflow-y-auto space-y-2">
-                {/* Category: Stands & Holders */}
-                <div>
-                  <p className="text-xs text-gray-500 mb-1 font-medium">Stands & Holders</p>
-                  <div className="flex flex-wrap gap-1">
-                    {SUGGESTION_PROMPTS.slice(0, 4).map((suggestion) => (
-                      <button
-                        key={suggestion.text}
-                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
-                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
-                      >
-                        <span>{suggestion.icon}</span>
-                        <span className="hidden sm:inline">{suggestion.text}</span>
-                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Category: Organization */}
-                <div>
-                  <p className="text-xs text-gray-500 mb-1 font-medium">Organization</p>
-                  <div className="flex flex-wrap gap-1">
-                    {SUGGESTION_PROMPTS.slice(4, 8).map((suggestion) => (
-                      <button
-                        key={suggestion.text}
-                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
-                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
-                      >
-                        <span>{suggestion.icon}</span>
-                        <span className="hidden sm:inline">{suggestion.text}</span>
-                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Category: Storage */}
-                <div>
-                  <p className="text-xs text-gray-500 mb-1 font-medium">Storage</p>
-                  <div className="flex flex-wrap gap-1">
-                    {SUGGESTION_PROMPTS.slice(8, 11).map((suggestion) => (
-                      <button
-                        key={suggestion.text}
-                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
-                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
-                      >
-                        <span>{suggestion.icon}</span>
-                        <span className="hidden sm:inline">{suggestion.text}</span>
-                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Category: Wall Mounts */}
-                <div>
-                  <p className="text-xs text-gray-500 mb-1 font-medium">Wall Mounts</p>
-                  <div className="flex flex-wrap gap-1">
-                    {SUGGESTION_PROMPTS.slice(11, 14).map((suggestion) => (
-                      <button
-                        key={suggestion.text}
-                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
-                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
-                      >
-                        <span>{suggestion.icon}</span>
-                        <span className="hidden sm:inline">{suggestion.text}</span>
-                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Category: Fun & Games */}
-                <div>
-                  <p className="text-xs text-gray-500 mb-1 font-medium">Fun & Games</p>
-                  <div className="flex flex-wrap gap-1">
-                    {SUGGESTION_PROMPTS.slice(14, 18).map((suggestion) => (
-                      <button
-                        key={suggestion.text}
-                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
-                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
-                      >
-                        <span>{suggestion.icon}</span>
-                        <span className="hidden sm:inline">{suggestion.text}</span>
-                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Category: Tech & Gadgets */}
-                <div>
-                  <p className="text-xs text-gray-500 mb-1 font-medium">Tech & Gadgets</p>
-                  <div className="flex flex-wrap gap-1">
-                    {SUGGESTION_PROMPTS.slice(18).map((suggestion) => (
-                      <button
-                        key={suggestion.text}
-                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
-                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
-                      >
-                        <span>{suggestion.icon}</span>
-                        <span className="hidden sm:inline">{suggestion.text}</span>
-                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                {SUGGESTION_PROMPTS.slice(0, 8).map((s) => (
+                  <button
+                    key={s.text}
+                    onClick={() => { setPrompt(s.text); setShowIdeas(false); }}
+                    className="block w-full text-left text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 truncate"
+                  >
+                    {s.icon} {s.text}
+                  </button>
+                ))}
               </div>
             )}
           </div>
-        </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="mx-4 mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
-        )}
-
-        {/* Model Info */}
-        {response && (
-          <div className="p-4 border-b border-gray-800">
-            <p className="text-sm text-gray-300 line-clamp-2 lg:line-clamp-none">{response.description}</p>
-            <div className="flex flex-wrap gap-1.5 lg:gap-2 mt-2">
-              <Badge variant="secondary" className="text-xs">{response.category}</Badge>
-              <Badge variant="outline" className="text-cyan-400 border-cyan-400/30 text-xs">
-                {response.estimatedPrintTime}
-              </Badge>
-              <Badge variant="outline" className="text-purple-400 border-purple-400/30 text-xs">
-                {response.difficulty}
-              </Badge>
+          {/* Error Display */}
+          {error && (
+            <div className="mx-3 mt-3 p-2 rounded bg-red-500/10 border border-red-500/30 flex items-start gap-2">
+              <AlertCircle className="w-3 h-3 text-red-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-red-400">{error}</p>
             </div>
-            {response.dimensions && (
-              <p className="text-xs text-gray-500 mt-2">
-                {response.dimensions.width} x {response.dimensions.depth} x {response.dimensions.height} mm
-              </p>
-            )}
-          </div>
-        )}
+          )}
 
-        {/* Tabs for Parameters & Code */}
-        <Tabs defaultValue="parameters" className="flex-1 flex flex-col min-h-0">
-          <TabsList className="mx-4 mt-4 bg-gray-800">
-            <TabsTrigger value="parameters" className="flex-1">
-              <Sliders className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Parameters</span>
-              <span className="sm:hidden">Params</span>
-            </TabsTrigger>
-            <TabsTrigger value="code" className="flex-1">
-              <Code2 className="w-4 h-4 mr-2" />
-              Code
-            </TabsTrigger>
-          </TabsList>
+          {/* Model Info */}
+          {response && (
+            <div className="p-3 border-b border-gray-800">
+              <p className="text-xs text-gray-300 line-clamp-2">{response.description}</p>
+              <div className="flex flex-wrap gap-1 mt-2">
+                <Badge variant="secondary" className="text-[10px]">{response.category}</Badge>
+                <Badge variant="outline" className="text-cyan-400 border-cyan-400/30 text-[10px]">
+                  {response.estimatedPrintTime}
+                </Badge>
+              </div>
+            </div>
+          )}
 
-          <TabsContent value="parameters" className="flex-1 m-0 mt-2 overflow-auto">
+          {/* Parameters - Visual Only (No Code Tab) */}
+          <div className="flex-1 overflow-auto">
             <ParameterControls />
-          </TabsContent>
+          </div>
 
-          <TabsContent value="code" className="flex-1 m-0 mt-2 p-4 overflow-auto">
-            <pre className="h-full overflow-auto bg-gray-800 rounded-lg p-4 text-xs font-mono text-gray-300">
-              {code || "// Generate a model to see the code"}
-            </pre>
-          </TabsContent>
-        </Tabs>
-
-        {/* Mobile: View 3D Button */}
-        <div className="lg:hidden p-4 border-t border-gray-800">
-          <Button
-            onClick={() => setMobileShowViewer(true)}
-            variant="outline"
-            className="w-full border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10"
-          >
-            View 3D Model
-          </Button>
+          {/* Mobile: View 3D Button */}
+          <div className="lg:hidden p-3 border-t border-gray-800">
+            <Button
+              onClick={() => setMobileShowViewer(true)}
+              variant="outline"
+              size="sm"
+              className="w-full border-cyan-500/50 text-cyan-400"
+            >
+              View 3D Model
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Right Panel - 3D Viewer */}
-      <div className={`flex-1 flex flex-col relative ${mobileShowViewer ? 'flex' : 'hidden lg:flex'}`}>
-        {/* Mobile: Back Button */}
-        <button
-          onClick={() => setMobileShowViewer(false)}
-          className="lg:hidden absolute top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/80 backdrop-blur-sm text-sm text-gray-300 hover:text-white"
-        >
-          <ChevronUp className="w-4 h-4 rotate-[-90deg]" />
-          Back
-        </button>
+        {/* Center - 3D Viewer */}
+        <div className={`flex-1 flex flex-col relative ${mobileShowViewer ? 'flex' : 'hidden lg:flex'}`}>
+          {/* Mobile: Back Button */}
+          <button
+            onClick={() => setMobileShowViewer(false)}
+            className="lg:hidden absolute top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/80 backdrop-blur-sm text-sm text-gray-300 hover:text-white"
+          >
+            <ChevronUp className="w-4 h-4 rotate-[-90deg]" />
+            Back
+          </button>
 
-        {/* Toolbar */}
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
-          {user && response && (
+          {/* Boolean Operations Toolbar */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-gray-900/80 backdrop-blur-sm rounded-lg border border-gray-700 px-2 py-1">
+            <BooleanToolbar />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="absolute top-4 right-4 z-10 flex gap-2">
+            {user && response && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleSave}
+                disabled={!code || isSaving}
+                className="bg-gray-800/80 backdrop-blur-sm"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin lg:mr-2" />
+                ) : saveSuccess ? (
+                  <Check className="w-4 h-4 text-green-400 lg:mr-2" />
+                ) : (
+                  <Save className="w-4 h-4 lg:mr-2" />
+                )}
+                <span className="hidden lg:inline">{saveSuccess ? "Saved!" : "Save"}</span>
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
-              onClick={handleSave}
-              disabled={!code || isSaving}
+              onClick={handleDownload}
+              disabled={!geometry}
               className="bg-gray-800/80 backdrop-blur-sm"
             >
-              {isSaving ? (
-                <Loader2 className="w-4 h-4 animate-spin lg:mr-2" />
-              ) : saveSuccess ? (
-                <Check className="w-4 h-4 text-green-400 lg:mr-2" />
-              ) : (
-                <Save className="w-4 h-4 lg:mr-2" />
-              )}
-              <span className="hidden lg:inline">{saveSuccess ? "Saved!" : "Save Model"}</span>
+              <Download className="w-4 h-4 lg:mr-2" />
+              <span className="hidden lg:inline">STL</span>
             </Button>
+          </div>
+
+          {/* Compiling Indicator */}
+          {isCompiling && (
+            <div className="absolute top-14 lg:top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/80 backdrop-blur-sm">
+              <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+              <span className="text-sm text-gray-300">Compiling...</span>
+            </div>
           )}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleDownload}
-            disabled={!geometry}
-            className="bg-gray-800/80 backdrop-blur-sm"
-          >
-            <Download className="w-4 h-4 lg:mr-2" />
-            <span className="hidden lg:inline">Download STL</span>
-          </Button>
+
+          {/* 3D Viewer */}
+          <div className="flex-1 relative">
+            <ModelViewer />
+          </div>
+
+          {/* Print Notes */}
+          {response?.notes && response.notes.length > 0 && (
+            <div className="absolute bottom-4 left-4 right-4 lg:left-auto lg:right-4 lg:max-w-xs bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-gray-700">
+              <p className="text-xs font-semibold text-gray-400 mb-1">Print Tips:</p>
+              <ul className="text-xs text-gray-300 space-y-1">
+                {response.notes.slice(0, 3).map((note, i) => (
+                  <li key={i}>• {note}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
-        {/* Compiling Indicator */}
-        {isCompiling && (
-          <div className="absolute top-14 lg:top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/80 backdrop-blur-sm">
-            <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-            <span className="text-sm text-gray-300">Compiling...</span>
+        {/* Right Panel - Properties/Analysis/History */}
+        <div className="hidden lg:flex w-80 border-l border-gray-800 flex-col bg-gray-900/50">
+          {/* Panel Tabs */}
+          <div className="flex border-b border-gray-800">
+            <button
+              onClick={() => setRightPanel("properties")}
+              className={`flex-1 p-2 text-xs flex items-center justify-center gap-1 transition-colors ${
+                rightPanel === "properties" ? "text-cyan-400 bg-cyan-500/10" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Sliders className="w-3 h-3" />
+              Transform
+            </button>
+            <button
+              onClick={() => setRightPanel("measure")}
+              className={`flex-1 p-2 text-xs flex items-center justify-center gap-1 transition-colors ${
+                rightPanel === "measure" ? "text-cyan-400 bg-cyan-500/10" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Ruler className="w-3 h-3" />
+              Measure
+            </button>
+            <button
+              onClick={() => setRightPanel("analysis")}
+              className={`flex-1 p-2 text-xs flex items-center justify-center gap-1 transition-colors ${
+                rightPanel === "analysis" ? "text-cyan-400 bg-cyan-500/10" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <BarChart3 className="w-3 h-3" />
+              Analysis
+            </button>
+            <button
+              onClick={() => setRightPanel("history")}
+              className={`flex-1 p-2 text-xs flex items-center justify-center gap-1 transition-colors ${
+                rightPanel === "history" ? "text-cyan-400 bg-cyan-500/10" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <History className="w-3 h-3" />
+              History
+            </button>
           </div>
-        )}
 
-        {/* 3D Viewer */}
-        <div className="flex-1 relative">
-          <ModelViewer />
+          {/* Panel Content */}
+          <div className="flex-1 overflow-hidden">
+            {rightPanel === "properties" && <TransformPanel />}
+            {rightPanel === "measure" && <MeasurementPanel />}
+            {rightPanel === "analysis" && <PrintAnalysisDashboard />}
+            {rightPanel === "history" && <HistoryPanel />}
+          </div>
         </div>
-
-        {/* Print Notes */}
-        {response?.notes && response.notes.length > 0 && (
-          <div className="absolute bottom-4 left-4 right-4 lg:left-auto lg:right-4 lg:max-w-xs bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-gray-700">
-            <p className="text-xs font-semibold text-gray-400 mb-1">Print Tips:</p>
-            <ul className="text-xs text-gray-300 space-y-1">
-              {response.notes.map((note, i) => (
-                <li key={i}>• {note}</li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   )
