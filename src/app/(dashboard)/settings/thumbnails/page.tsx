@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import {
   Camera,
@@ -9,9 +9,10 @@ import {
   ImageIcon,
   ArrowLeft,
   Play,
-  Download,
   Square,
   CheckSquare,
+  Upload,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -19,6 +20,7 @@ import { Progress } from "@/components/ui/progress"
 import { Checkbox } from "@/components/ui/checkbox"
 import { TEMPLATES } from "@/lib/templates"
 import { compileJSCAD } from "@/lib/jscad/compiler"
+import { createClient } from "@/lib/supabase/client"
 import type { GeometryData } from "@/lib/types"
 import Link from "next/link"
 
@@ -31,7 +33,7 @@ const ThumbnailViewer = dynamic(() => import("@/components/3d/ThumbnailViewer"),
   ),
 })
 
-type Status = "pending" | "selected" | "compiling" | "rendering" | "capturing" | "done" | "error"
+type Status = "pending" | "compiling" | "rendering" | "capturing" | "uploading" | "done" | "error"
 
 interface ThumbnailState {
   id: string
@@ -48,22 +50,46 @@ export default function ThumbnailGeneratorPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(-1)
   const [currentStep, setCurrentStep] = useState("")
-  // Only load 3 viewers at a time to prevent WebGL context loss
-  const [visibleRange, setVisibleRange] = useState<[number, number]>([0, 6])
+  const [visibleRange, setVisibleRange] = useState<[number, number]>([0, 3])
+  const supabase = createClient()
 
   useEffect(() => {
-    setThumbnails(
-      TEMPLATES.map((t) => ({
+    // Load existing thumbnails from Supabase
+    const loadExisting = async () => {
+      const initial = TEMPLATES.map((t) => ({
         id: t.id,
         name: t.name,
         status: "pending" as Status,
         geometry: null,
         imageUrl: null,
         error: null,
-        selected: true, // Selected by default
+        selected: true,
       }))
-    )
-  }, [])
+
+      // Check which thumbnails already exist in Supabase
+      for (const thumb of initial) {
+        const { data } = supabase.storage
+          .from("thumbnails")
+          .getPublicUrl(`templates/${thumb.id}.png`)
+
+        // Try to fetch to see if it exists
+        try {
+          const res = await fetch(data.publicUrl, { method: "HEAD" })
+          if (res.ok) {
+            thumb.imageUrl = data.publicUrl
+            thumb.status = "done"
+            thumb.selected = false // Don't regenerate existing ones by default
+          }
+        } catch {
+          // Doesn't exist, keep as pending
+        }
+      }
+
+      setThumbnails(initial)
+    }
+
+    loadExisting()
+  }, [supabase])
 
   const updateThumbnail = useCallback((id: string, updates: Partial<ThumbnailState>) => {
     setThumbnails((prev) =>
@@ -72,9 +98,9 @@ export default function ThumbnailGeneratorPage() {
   }, [])
 
   const toggleSelect = (id: string) => {
-    updateThumbnail(id, {
-      selected: !thumbnails.find((t) => t.id === id)?.selected,
-    })
+    setThumbnails((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, selected: !t.selected } : t))
+    )
   }
 
   const selectAll = () => {
@@ -85,12 +111,18 @@ export default function ThumbnailGeneratorPage() {
     setThumbnails((prev) => prev.map((t) => ({ ...t, selected: false })))
   }
 
-  const processTemplate = async (index: number): Promise<string | null> => {
+  const selectMissing = () => {
+    setThumbnails((prev) =>
+      prev.map((t) => ({ ...t, selected: t.status !== "done" }))
+    )
+  }
+
+  const processTemplate = async (index: number): Promise<boolean> => {
     const template = TEMPLATES[index]
-    if (!template) return null
+    if (!template) return false
 
     const thumb = thumbnails.find((t) => t.id === template.id)
-    if (!thumb?.selected) return null
+    if (!thumb?.selected) return false
 
     // Update visible range to show this template
     setVisibleRange([Math.max(0, index - 1), Math.min(TEMPLATES.length, index + 2)])
@@ -111,7 +143,7 @@ export default function ThumbnailGeneratorPage() {
         status: "error",
         error: err instanceof Error ? err.message : "Compile failed",
       })
-      return null
+      return false
     }
 
     // Step 2: Wait for render
@@ -126,24 +158,52 @@ export default function ThumbnailGeneratorPage() {
     const canvas = document.querySelector(`#canvas-${template.id} canvas`) as HTMLCanvasElement
     if (!canvas) {
       updateThumbnail(template.id, { status: "error", error: "Canvas not found" })
-      return null
+      return false
     }
 
-    try {
-      const imageData = canvas.toDataURL("image/png")
+    // Step 4: Upload to Supabase
+    setCurrentStep(`Uploading ${template.name}...`)
+    updateThumbnail(template.id, { status: "uploading" })
 
-      if (!imageData || imageData === "data:," || imageData.length < 1000) {
-        throw new Error("Empty canvas")
+    try {
+      // Convert canvas to blob
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/png", 0.9)
+      })
+
+      if (!blob) {
+        throw new Error("Failed to capture image")
       }
 
-      updateThumbnail(template.id, { status: "done", imageUrl: imageData })
-      return imageData
+      // Upload to Supabase Storage
+      const fileName = `templates/${template.id}.png`
+      const { error: uploadError } = await supabase.storage
+        .from("thumbnails")
+        .upload(fileName, blob, {
+          contentType: "image/png",
+          upsert: true, // Replace if exists
+        })
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from("thumbnails")
+        .getPublicUrl(fileName)
+
+      updateThumbnail(template.id, {
+        status: "done",
+        imageUrl: `${data.publicUrl}?t=${Date.now()}`, // Cache bust
+      })
+      return true
     } catch (err) {
       updateThumbnail(template.id, {
         status: "error",
-        error: err instanceof Error ? err.message : "Capture failed",
+        error: err instanceof Error ? err.message : "Upload failed",
       })
-      return null
+      return false
     }
   }
 
@@ -159,7 +219,6 @@ export default function ThumbnailGeneratorPage() {
       const idx = selectedIndices[i]
       setCurrentIndex(idx)
       await processTemplate(idx)
-      // Delay between to let WebGL recover
       await new Promise((r) => setTimeout(r, 500))
     }
 
@@ -168,36 +227,14 @@ export default function ThumbnailGeneratorPage() {
     setIsProcessing(false)
   }
 
-  const downloadAll = () => {
-    thumbnails
-      .filter((t) => t.imageUrl)
-      .forEach((t, i) => {
-        setTimeout(() => {
-          const link = document.createElement("a")
-          link.href = t.imageUrl!
-          link.download = `${t.id}.png`
-          link.click()
-        }, i * 200)
-      })
-  }
-
-  const downloadOne = (thumb: ThumbnailState) => {
-    if (!thumb.imageUrl) return
-    const link = document.createElement("a")
-    link.href = thumb.imageUrl
-    link.download = `${thumb.id}.png`
-    link.click()
-  }
-
   const selectedCount = thumbnails.filter((t) => t.selected).length
   const doneCount = thumbnails.filter((t) => t.status === "done").length
   const errorCount = thumbnails.filter((t) => t.status === "error").length
+  const missingCount = thumbnails.filter((t) => t.status === "pending" || t.status === "error").length
   const progress =
     isProcessing && currentIndex >= 0
       ? ((currentIndex + 1) / TEMPLATES.length) * 100
-      : doneCount > 0
-      ? (doneCount / selectedCount) * 100
-      : 0
+      : (doneCount / TEMPLATES.length) * 100
 
   return (
     <div className="flex flex-col h-full">
@@ -216,67 +253,68 @@ export default function ThumbnailGeneratorPage() {
           Template Thumbnails
         </h1>
         <p className="text-gray-400 mt-1 text-sm">
-          Generate preview images for templates. Select which ones to generate.
+          Generate and upload preview images for the template library.
         </p>
+
+        {/* Status summary */}
+        <div className="flex flex-wrap gap-3 mt-3 text-sm">
+          <span className="text-green-400">{doneCount} uploaded</span>
+          <span className="text-gray-500">•</span>
+          <span className={missingCount > 0 ? "text-yellow-400" : "text-gray-500"}>
+            {missingCount} missing
+          </span>
+          {errorCount > 0 && (
+            <>
+              <span className="text-gray-500">•</span>
+              <span className="text-red-400">{errorCount} errors</span>
+            </>
+          )}
+        </div>
 
         {/* Selection Controls */}
         <div className="flex flex-wrap gap-2 mt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={selectAll}
-            className="text-xs"
-          >
+          <Button variant="outline" size="sm" onClick={selectAll} className="text-xs">
             <CheckSquare className="w-3 h-3 mr-1" />
-            Select All
+            All
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={selectNone}
-            className="text-xs"
-          >
+          <Button variant="outline" size="sm" onClick={selectNone} className="text-xs">
             <Square className="w-3 h-3 mr-1" />
-            Select None
+            None
           </Button>
-          <span className="text-xs text-gray-500 self-center ml-2">
-            {selectedCount} of {TEMPLATES.length} selected
-          </span>
+          {missingCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={selectMissing}
+              className="text-xs text-yellow-400 border-yellow-400/50"
+            >
+              <AlertCircle className="w-3 h-3 mr-1" />
+              Missing Only ({missingCount})
+            </Button>
+          )}
         </div>
 
-        {/* Main Actions */}
+        {/* Main Action */}
         <div className="mt-4 space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={generateSelected}
-              disabled={isProcessing || selectedCount === 0}
-              className="bg-gradient-to-r from-cyan-500 to-purple-600"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  <span className="hidden sm:inline">{currentStep}</span>
-                  <span className="sm:hidden">Processing...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Generate Selected ({selectedCount})
-                </>
-              )}
-            </Button>
-
-            {doneCount > 0 && (
-              <Button
-                onClick={downloadAll}
-                variant="outline"
-                className="border-green-500 text-green-400"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download All ({doneCount})
-              </Button>
+          <Button
+            onClick={generateSelected}
+            disabled={isProcessing || selectedCount === 0}
+            size="lg"
+            className="bg-gradient-to-r from-cyan-500 to-purple-600 w-full sm:w-auto"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">{currentStep}</span>
+                <span className="sm:hidden">Processing...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4 mr-2" />
+                Generate & Upload ({selectedCount})
+              </>
             )}
-          </div>
+          </Button>
 
           {(isProcessing || doneCount > 0) && (
             <div className="space-y-2">
@@ -287,38 +325,22 @@ export default function ThumbnailGeneratorPage() {
                     Processing {currentIndex + 1} of {TEMPLATES.length}
                   </span>
                 )}
-                {doneCount > 0 && (
-                  <span className="text-green-400">
-                    <Check className="w-4 h-4 inline mr-1" />
-                    {doneCount} captured
-                  </span>
-                )}
-                {errorCount > 0 && (
-                  <span className="text-red-400">{errorCount} errors</span>
-                )}
               </div>
             </div>
           )}
         </div>
-
-        <p className="text-xs text-gray-500 mt-3">
-          After downloading, place files in{" "}
-          <code className="bg-gray-800 px-1 rounded">/public/templates/</code>
-        </p>
       </div>
 
       {/* Grid */}
       <div className="flex-1 overflow-auto p-4 sm:p-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {thumbnails.map((thumb, index) => {
-            const isVisible =
-              index >= visibleRange[0] && index <= visibleRange[1]
+            const isVisible = index >= visibleRange[0] && index <= visibleRange[1]
             const showViewer =
               isVisible &&
-              (thumb.status === "rendering" ||
-                thumb.status === "capturing" ||
-                thumb.status === "done") &&
-              thumb.geometry
+              (thumb.status === "rendering" || thumb.status === "capturing") &&
+              thumb.geometry &&
+              !thumb.imageUrl
 
             return (
               <Card
@@ -336,7 +358,7 @@ export default function ThumbnailGeneratorPage() {
                       disabled={isProcessing}
                     />
                     <span className="text-[10px] text-gray-500 truncate flex-1">
-                      {thumb.id}.png
+                      {thumb.id}
                     </span>
                   </div>
 
@@ -345,14 +367,9 @@ export default function ThumbnailGeneratorPage() {
                     id={`canvas-${thumb.id}`}
                     className="aspect-square rounded-lg overflow-hidden bg-gray-800 relative"
                   >
-                    {thumb.status === "pending" && (
-                      <div className="w-full h-full flex items-center justify-center text-gray-600">
-                        <span className="text-xs">Pending</span>
-                      </div>
-                    )}
-                    {thumb.status === "selected" && (
-                      <div className="w-full h-full flex items-center justify-center text-cyan-600">
-                        <span className="text-xs">Ready</span>
+                    {thumb.status === "pending" && !thumb.imageUrl && (
+                      <div className="w-full h-full flex items-center justify-center text-yellow-500">
+                        <AlertCircle className="w-6 h-6" />
                       </div>
                     )}
                     {thumb.status === "compiling" && (
@@ -367,7 +384,7 @@ export default function ThumbnailGeneratorPage() {
                       </div>
                     )}
 
-                    {/* Show captured image or live viewer */}
+                    {/* Show uploaded image or live viewer */}
                     {thumb.imageUrl ? (
                       <img
                         src={thumb.imageUrl}
@@ -389,6 +406,11 @@ export default function ThumbnailGeneratorPage() {
                         <Camera className="w-3 h-3 text-white" />
                       </div>
                     )}
+                    {thumb.status === "uploading" && (
+                      <div className="absolute top-1 right-1 bg-blue-500 rounded-full p-1">
+                        <Upload className="w-3 h-3 text-white" />
+                      </div>
+                    )}
                     {thumb.status === "done" && (
                       <div className="absolute top-1 right-1 bg-green-500 rounded-full p-1">
                         <Check className="w-3 h-3 text-white" />
@@ -398,19 +420,6 @@ export default function ThumbnailGeneratorPage() {
 
                   {/* Template name */}
                   <p className="text-[10px] font-medium mt-1 truncate">{thumb.name}</p>
-
-                  {/* Individual download */}
-                  {thumb.imageUrl && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="w-full h-6 text-[10px] mt-1 text-green-400"
-                      onClick={() => downloadOne(thumb)}
-                    >
-                      <Download className="w-3 h-3 mr-1" />
-                      Download
-                    </Button>
-                  )}
                 </CardContent>
               </Card>
             )

@@ -1,9 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Library, Search, Filter, Star, Sparkles } from "lucide-react"
-import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,12 +17,30 @@ import {
 import { TEMPLATES, CATEGORIES } from "@/lib/templates"
 import { useModelStore } from "@/lib/store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
+import { createClient } from "@/lib/supabase/client"
 
 export default function LibraryPage() {
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("all")
   const [loading, setLoading] = useState<string | null>(null)
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({})
   const router = useRouter()
+  const supabase = createClient()
+
+  // Load thumbnail URLs from Supabase
+  useEffect(() => {
+    const loadThumbnails = async () => {
+      const urls: Record<string, string> = {}
+      for (const template of TEMPLATES) {
+        const { data } = supabase.storage
+          .from("thumbnails")
+          .getPublicUrl(`templates/${template.id}.png`)
+        urls[template.id] = data.publicUrl
+      }
+      setThumbnailUrls(urls)
+    }
+    loadThumbnails()
+  }, [supabase])
 
   const {
     setCode,
@@ -128,6 +145,7 @@ export default function LibraryPage() {
                   loading={loading === template.id}
                   featured
                   onCustomize={handleCustomize}
+                  thumbnailUrl={thumbnailUrls[template.id]}
                 />
               ))}
             </div>
@@ -146,6 +164,7 @@ export default function LibraryPage() {
                 template={template}
                 loading={loading === template.id}
                 onCustomize={handleCustomize}
+                thumbnailUrl={thumbnailUrls[template.id]}
               />
             ))}
           </div>
@@ -168,9 +187,10 @@ interface TemplateCardProps {
   loading: boolean
   featured?: boolean
   onCustomize: (id: string) => void
+  thumbnailUrl?: string
 }
 
-function TemplateCard({ template, loading, featured, onCustomize }: TemplateCardProps) {
+function TemplateCard({ template, loading, featured, onCustomize, thumbnailUrl }: TemplateCardProps) {
   const [imageError, setImageError] = useState(false)
 
   return (
@@ -184,7 +204,7 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
       <CardContent className="p-3 sm:p-4">
         {/* Preview */}
         <div className="aspect-square rounded-lg overflow-hidden mb-3 sm:mb-4 relative bg-gradient-to-br from-gray-800 to-gray-900">
-          {imageError ? (
+          {imageError || !thumbnailUrl ? (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500/10 to-purple-500/10">
               <div className="text-center p-4">
                 <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-cyan-500/20 flex items-center justify-center">
@@ -194,12 +214,11 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
               </div>
             </div>
           ) : (
-            <Image
-              src={`/templates/${template.id}.png`}
+            // Use regular img tag for Supabase URLs (external)
+            <img
+              src={thumbnailUrl}
               alt={template.name}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               onError={() => setImageError(true)}
             />
           )}
