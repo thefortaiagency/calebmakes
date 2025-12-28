@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Library, Search, Filter, Star, Sparkles, ArrowUpDown, LayoutGrid, List, Clock, Gauge } from "lucide-react"
+import { Library, Search, Filter, Star, Sparkles, ArrowUpDown, LayoutGrid, List, Clock, Gauge, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -301,6 +301,7 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
 
   return (
     <Card
+      onClick={() => onCustomize(template.id)}
       className={`border-gray-800 transition-all duration-300 cursor-pointer group ${
         featured
           ? "bg-gradient-to-br from-yellow-500/5 to-amber-500/5 hover:border-yellow-500/30"
@@ -310,7 +311,11 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
       <CardContent className="p-3 sm:p-4">
         {/* Preview */}
         <div className="aspect-square rounded-lg overflow-hidden mb-3 sm:mb-4 relative bg-gradient-to-br from-gray-800 to-gray-900">
-          {imageError ? (
+          {loading ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+            </div>
+          ) : imageError ? (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500/10 to-purple-500/10">
               <div className="text-center p-4">
                 <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-cyan-500/20 flex items-center justify-center">
