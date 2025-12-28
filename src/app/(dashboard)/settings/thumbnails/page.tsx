@@ -162,7 +162,7 @@ export default function ThumbnailGeneratorPage() {
       return false
     }
 
-    // Step 4: Upload to Supabase
+    // Step 4: Upload via API (bypasses RLS)
     setCurrentStep(`Uploading ${template.name}...`)
     updateThumbnail(template.id, { status: "uploading" })
 
@@ -176,27 +176,26 @@ export default function ThumbnailGeneratorPage() {
         throw new Error("Failed to capture image")
       }
 
-      // Upload to Supabase Storage
-      const fileName = `templates/${template.id}.png`
-      const { error: uploadError } = await supabase.storage
-        .from("thumbnails")
-        .upload(fileName, blob, {
-          contentType: "image/png",
-          upsert: true, // Replace if exists
-        })
+      // Upload via API endpoint (uses service role key)
+      const formData = new FormData()
+      formData.append("file", blob, `${template.id}.png`)
+      formData.append("templateId", template.id)
 
-      if (uploadError) {
-        throw uploadError
+      const response = await fetch("/api/thumbnails/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Upload failed")
       }
 
-      // Get public URL
-      const { data } = supabase.storage
-        .from("thumbnails")
-        .getPublicUrl(fileName)
+      const { url } = await response.json()
 
       updateThumbnail(template.id, {
         status: "done",
-        imageUrl: `${data.publicUrl}?t=${Date.now()}`, // Cache bust
+        imageUrl: url,
       })
       return true
     } catch (err) {
