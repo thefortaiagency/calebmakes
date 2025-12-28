@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Code2, Sliders, Loader2, AlertCircle, Save, Check } from "lucide-react"
+import { Sparkles, Download, Code2, Sliders, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -26,12 +26,34 @@ const ModelViewer = dynamic(() => import("@/components/3d/ModelViewer"), {
 })
 
 const SUGGESTION_PROMPTS = [
-  "Phone stand for iPhone 15 with cable slot",
-  "Pencil holder with hexagonal design",
-  "Cable organizer with 5 slots",
-  "Small box with snap-fit lid",
-  "Wall mount hook for headphones",
-  "Desk organizer with 3 compartments",
+  // Stands & Holders
+  { text: "Phone stand with charging slot", icon: "📱" },
+  { text: "Tablet holder for kitchen recipes", icon: "📖" },
+  { text: "Gaming controller display stand", icon: "🎮" },
+  { text: "Headphone hanger for desk", icon: "🎧" },
+  // Organization
+  { text: "Pencil cup with hexagon design", icon: "✏️" },
+  { text: "Cable organizer with 5 slots", icon: "🔌" },
+  { text: "Desk organizer for pens and cards", icon: "🗂️" },
+  { text: "SD card holder with labels", icon: "💾" },
+  // Storage
+  { text: "Small box with snap-fit lid", icon: "📦" },
+  { text: "Drawer divider for screws", icon: "🔧" },
+  { text: "Stackable storage container", icon: "📚" },
+  // Wall Mounts
+  { text: "Wall hook for keys", icon: "🔑" },
+  { text: "Floating shelf bracket", icon: "🏠" },
+  { text: "Tool holder for wall", icon: "🛠️" },
+  // Fun & Games
+  { text: "Dice tower for board games", icon: "🎲" },
+  { text: "Fidget spinner toy", icon: "🧩" },
+  { text: "Mini basketball hoop for trash can", icon: "🏀" },
+  { text: "Guitar pick holder", icon: "🎸" },
+  // Tech & Gadgets
+  { text: "AirPods case stand", icon: "🎵" },
+  { text: "USB hub holder", icon: "💻" },
+  { text: "Raspberry Pi case", icon: "🍓" },
+  { text: "Watch charging dock", icon: "⌚" },
 ]
 
 export default function CreatePage() {
@@ -40,6 +62,8 @@ export default function CreatePage() {
   const [user, setUser] = useState<User | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [showIdeas, setShowIdeas] = useState(false)
+  const [mobileShowViewer, setMobileShowViewer] = useState(false)
   const supabase = createClient()
 
   // Get user on mount
@@ -226,9 +250,9 @@ export default function CreatePage() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col lg:flex-row h-full">
       {/* Left Panel - Input & Parameters */}
-      <div className="w-96 border-r border-gray-800 flex flex-col bg-gray-900/50">
+      <div className={`w-full lg:w-96 border-b lg:border-b-0 lg:border-r border-gray-800 flex flex-col bg-gray-900/50 ${mobileShowViewer ? 'hidden lg:flex' : 'flex'}`}>
         {/* Header */}
         <div className="p-4 border-b border-gray-800">
           <h1 className="text-xl font-bold flex items-center gap-2">
@@ -246,7 +270,7 @@ export default function CreatePage() {
             placeholder="I want to make a phone stand with a cable slot..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="min-h-[100px] bg-gray-800 border-gray-700 resize-none"
+            className="min-h-[80px] lg:min-h-[100px] bg-gray-800 border-gray-700 resize-none"
           />
 
           <Button
@@ -267,17 +291,128 @@ export default function CreatePage() {
             )}
           </Button>
 
-          {/* Quick Suggestions */}
-          <div className="mt-3 flex flex-wrap gap-1">
-            {SUGGESTION_PROMPTS.slice(0, 3).map((suggestion) => (
-              <button
-                key={suggestion}
-                onClick={() => setPrompt(suggestion)}
-                className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors"
-              >
-                {suggestion.length > 25 ? suggestion.slice(0, 25) + "..." : suggestion}
-              </button>
-            ))}
+          {/* Quick Suggestions - Expandable */}
+          <div className="mt-3">
+            <button
+              onClick={() => setShowIdeas(!showIdeas)}
+              className="flex items-center gap-2 text-sm text-gray-400 hover:text-cyan-400 transition-colors w-full"
+            >
+              <Lightbulb className="w-4 h-4" />
+              <span>Need ideas?</span>
+              {showIdeas ? <ChevronUp className="w-4 h-4 ml-auto" /> : <ChevronDown className="w-4 h-4 ml-auto" />}
+            </button>
+
+            {showIdeas && (
+              <div className="mt-3 max-h-48 overflow-y-auto space-y-2">
+                {/* Category: Stands & Holders */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-1 font-medium">Stands & Holders</p>
+                  <div className="flex flex-wrap gap-1">
+                    {SUGGESTION_PROMPTS.slice(0, 4).map((suggestion) => (
+                      <button
+                        key={suggestion.text}
+                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
+                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
+                      >
+                        <span>{suggestion.icon}</span>
+                        <span className="hidden sm:inline">{suggestion.text}</span>
+                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category: Organization */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-1 font-medium">Organization</p>
+                  <div className="flex flex-wrap gap-1">
+                    {SUGGESTION_PROMPTS.slice(4, 8).map((suggestion) => (
+                      <button
+                        key={suggestion.text}
+                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
+                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
+                      >
+                        <span>{suggestion.icon}</span>
+                        <span className="hidden sm:inline">{suggestion.text}</span>
+                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category: Storage */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-1 font-medium">Storage</p>
+                  <div className="flex flex-wrap gap-1">
+                    {SUGGESTION_PROMPTS.slice(8, 11).map((suggestion) => (
+                      <button
+                        key={suggestion.text}
+                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
+                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
+                      >
+                        <span>{suggestion.icon}</span>
+                        <span className="hidden sm:inline">{suggestion.text}</span>
+                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category: Wall Mounts */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-1 font-medium">Wall Mounts</p>
+                  <div className="flex flex-wrap gap-1">
+                    {SUGGESTION_PROMPTS.slice(11, 14).map((suggestion) => (
+                      <button
+                        key={suggestion.text}
+                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
+                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
+                      >
+                        <span>{suggestion.icon}</span>
+                        <span className="hidden sm:inline">{suggestion.text}</span>
+                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category: Fun & Games */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-1 font-medium">Fun & Games</p>
+                  <div className="flex flex-wrap gap-1">
+                    {SUGGESTION_PROMPTS.slice(14, 18).map((suggestion) => (
+                      <button
+                        key={suggestion.text}
+                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
+                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
+                      >
+                        <span>{suggestion.icon}</span>
+                        <span className="hidden sm:inline">{suggestion.text}</span>
+                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category: Tech & Gadgets */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-1 font-medium">Tech & Gadgets</p>
+                  <div className="flex flex-wrap gap-1">
+                    {SUGGESTION_PROMPTS.slice(18).map((suggestion) => (
+                      <button
+                        key={suggestion.text}
+                        onClick={() => { setPrompt(suggestion.text); setShowIdeas(false); }}
+                        className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700 transition-colors flex items-center gap-1"
+                      >
+                        <span>{suggestion.icon}</span>
+                        <span className="hidden sm:inline">{suggestion.text}</span>
+                        <span className="sm:hidden">{suggestion.text.split(' ').slice(0, 2).join(' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -292,13 +427,13 @@ export default function CreatePage() {
         {/* Model Info */}
         {response && (
           <div className="p-4 border-b border-gray-800">
-            <p className="text-sm text-gray-300">{response.description}</p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <Badge variant="secondary">{response.category}</Badge>
-              <Badge variant="outline" className="text-cyan-400 border-cyan-400/30">
+            <p className="text-sm text-gray-300 line-clamp-2 lg:line-clamp-none">{response.description}</p>
+            <div className="flex flex-wrap gap-1.5 lg:gap-2 mt-2">
+              <Badge variant="secondary" className="text-xs">{response.category}</Badge>
+              <Badge variant="outline" className="text-cyan-400 border-cyan-400/30 text-xs">
                 {response.estimatedPrintTime}
               </Badge>
-              <Badge variant="outline" className="text-purple-400 border-purple-400/30">
+              <Badge variant="outline" className="text-purple-400 border-purple-400/30 text-xs">
                 {response.difficulty}
               </Badge>
             </div>
@@ -311,11 +446,12 @@ export default function CreatePage() {
         )}
 
         {/* Tabs for Parameters & Code */}
-        <Tabs defaultValue="parameters" className="flex-1 flex flex-col">
+        <Tabs defaultValue="parameters" className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-4 mt-4 bg-gray-800">
             <TabsTrigger value="parameters" className="flex-1">
               <Sliders className="w-4 h-4 mr-2" />
-              Parameters
+              <span className="hidden sm:inline">Parameters</span>
+              <span className="sm:hidden">Params</span>
             </TabsTrigger>
             <TabsTrigger value="code" className="flex-1">
               <Code2 className="w-4 h-4 mr-2" />
@@ -323,20 +459,40 @@ export default function CreatePage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="parameters" className="flex-1 m-0 mt-2">
+          <TabsContent value="parameters" className="flex-1 m-0 mt-2 overflow-auto">
             <ParameterControls />
           </TabsContent>
 
-          <TabsContent value="code" className="flex-1 m-0 mt-2 p-4">
+          <TabsContent value="code" className="flex-1 m-0 mt-2 p-4 overflow-auto">
             <pre className="h-full overflow-auto bg-gray-800 rounded-lg p-4 text-xs font-mono text-gray-300">
               {code || "// Generate a model to see the code"}
             </pre>
           </TabsContent>
         </Tabs>
+
+        {/* Mobile: View 3D Button */}
+        <div className="lg:hidden p-4 border-t border-gray-800">
+          <Button
+            onClick={() => setMobileShowViewer(true)}
+            variant="outline"
+            className="w-full border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10"
+          >
+            View 3D Model
+          </Button>
+        </div>
       </div>
 
       {/* Right Panel - 3D Viewer */}
-      <div className="flex-1 flex flex-col relative">
+      <div className={`flex-1 flex flex-col relative ${mobileShowViewer ? 'flex' : 'hidden lg:flex'}`}>
+        {/* Mobile: Back Button */}
+        <button
+          onClick={() => setMobileShowViewer(false)}
+          className="lg:hidden absolute top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/80 backdrop-blur-sm text-sm text-gray-300 hover:text-white"
+        >
+          <ChevronUp className="w-4 h-4 rotate-[-90deg]" />
+          Back
+        </button>
+
         {/* Toolbar */}
         <div className="absolute top-4 right-4 z-10 flex gap-2">
           {user && response && (
@@ -348,13 +504,13 @@ export default function CreatePage() {
               className="bg-gray-800/80 backdrop-blur-sm"
             >
               {isSaving ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin lg:mr-2" />
               ) : saveSuccess ? (
-                <Check className="w-4 h-4 mr-2 text-green-400" />
+                <Check className="w-4 h-4 text-green-400 lg:mr-2" />
               ) : (
-                <Save className="w-4 h-4 mr-2" />
+                <Save className="w-4 h-4 lg:mr-2" />
               )}
-              {saveSuccess ? "Saved!" : "Save Model"}
+              <span className="hidden lg:inline">{saveSuccess ? "Saved!" : "Save Model"}</span>
             </Button>
           )}
           <Button
@@ -364,14 +520,14 @@ export default function CreatePage() {
             disabled={!geometry}
             className="bg-gray-800/80 backdrop-blur-sm"
           >
-            <Download className="w-4 h-4 mr-2" />
-            Download STL
+            <Download className="w-4 h-4 lg:mr-2" />
+            <span className="hidden lg:inline">Download STL</span>
           </Button>
         </div>
 
         {/* Compiling Indicator */}
         {isCompiling && (
-          <div className="absolute top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/80 backdrop-blur-sm">
+          <div className="absolute top-14 lg:top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/80 backdrop-blur-sm">
             <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
             <span className="text-sm text-gray-300">Compiling...</span>
           </div>
@@ -384,7 +540,7 @@ export default function CreatePage() {
 
         {/* Print Notes */}
         {response?.notes && response.notes.length > 0 && (
-          <div className="absolute bottom-4 right-4 max-w-xs bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-gray-700">
+          <div className="absolute bottom-4 left-4 right-4 lg:left-auto lg:right-4 lg:max-w-xs bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-gray-700">
             <p className="text-xs font-semibold text-gray-400 mb-1">Print Tips:</p>
             <ul className="text-xs text-gray-300 space-y-1">
               {response.notes.map((note, i) => (
