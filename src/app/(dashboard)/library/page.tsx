@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
-import { Library, Search, Filter, Star, Sparkles, ArrowUpDown, LayoutGrid, List, Clock, Gauge, Loader2, Camera } from "lucide-react"
+import { Library, Search, Filter, Sparkles, ArrowUpDown, LayoutGrid, List, Gauge, Loader2, Camera } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -226,8 +226,6 @@ export default function LibraryPage() {
     }
   }
 
-  const featuredTemplates = filteredTemplates.filter((t) => t.featured)
-  const otherTemplates = filteredTemplates.filter((t) => !t.featured)
 
   return (
     <div className="flex flex-col h-full">
@@ -327,38 +325,10 @@ export default function LibraryPage() {
 
       {/* Templates */}
       <div className="flex-1 overflow-auto p-4 sm:p-6">
-        {/* Featured Section (grid view only) */}
-        {viewMode === "grid" && featuredTemplates.length > 0 && category === "all" && (
-          <div className="mb-6 sm:mb-8">
-            <div className="flex items-center gap-2 mb-3 sm:mb-4">
-              <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
-              <h2 className="text-base sm:text-lg font-semibold">Featured Templates</h2>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {featuredTemplates.map((template) => (
-                <TemplateCard
-                  key={template.id}
-                  template={template}
-                  loading={loading === template.id}
-                  featured
-                  onCustomize={handleCustomize}
-                  onCapture={handleCaptureThumbnail}
-                  thumbnailUrl={thumbnailUrls[template.id]}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* All Templates */}
         <div>
-          {viewMode === "grid" && category === "all" && featuredTemplates.length > 0 && (
-            <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">All Templates</h2>
-          )}
-
           {viewMode === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {(category === "all" ? otherTemplates : filteredTemplates).map((template) => (
+              {filteredTemplates.map((template) => (
                 <TemplateCard
                   key={template.id}
                   template={template}
@@ -413,13 +383,12 @@ export default function LibraryPage() {
 interface TemplateCardProps {
   template: (typeof TEMPLATES)[0]
   loading: boolean
-  featured?: boolean
   onCustomize: (id: string) => void
   onCapture?: (template: Template) => void
   thumbnailUrl?: string
 }
 
-function TemplateCard({ template, loading, featured, onCustomize, onCapture, thumbnailUrl }: TemplateCardProps) {
+function TemplateCard({ template, loading, onCustomize, onCapture, thumbnailUrl }: TemplateCardProps) {
   const [imageError, setImageError] = useState(false)
 
   // Use custom thumbnail URL if available, otherwise fall back to static
@@ -428,11 +397,7 @@ function TemplateCard({ template, loading, featured, onCustomize, onCapture, thu
   return (
     <Card
       onClick={() => onCustomize(template.id)}
-      className={`border-gray-800 transition-all duration-300 cursor-pointer group ${
-        featured
-          ? "bg-gradient-to-br from-yellow-500/5 to-amber-500/5 hover:border-yellow-500/30"
-          : "bg-gray-900/50 hover:border-cyan-500/30"
-      }`}
+      className="bg-gray-900/50 border-gray-800 hover:border-cyan-500/30 transition-all duration-300 cursor-pointer group"
     >
       <CardContent className="p-3 sm:p-4">
         {/* Preview */}
@@ -471,15 +436,10 @@ function TemplateCard({ template, loading, featured, onCustomize, onCapture, thu
               <Camera className="w-4 h-4" />
             </button>
           )}
-          {featured && (
-            <div className="absolute top-2 right-2 z-10">
-              <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 fill-yellow-400" />
-            </div>
-          )}
         </div>
 
         {/* Info */}
-        <h3 className={`text-sm sm:text-base font-semibold transition-colors line-clamp-1 ${featured ? "group-hover:text-yellow-400" : "group-hover:text-cyan-400"}`}>
+        <h3 className="text-sm sm:text-base font-semibold transition-colors line-clamp-1 group-hover:text-cyan-400">
           {template.name}
         </h3>
         <p className="text-xs sm:text-sm text-gray-500 mt-1 line-clamp-2 hidden sm:block">
@@ -510,11 +470,7 @@ function TemplateCard({ template, loading, featured, onCustomize, onCapture, thu
           disabled={loading}
           variant="secondary"
           size="sm"
-          className={`w-full mt-2 sm:mt-4 text-xs sm:text-sm ${
-            featured
-              ? "bg-yellow-500/10 hover:bg-yellow-500/20 hover:text-yellow-400"
-              : "bg-gray-800 hover:bg-cyan-500/20 hover:text-cyan-400"
-          }`}
+          className="w-full mt-2 sm:mt-4 text-xs sm:text-sm bg-gray-800 hover:bg-cyan-500/20 hover:text-cyan-400"
         >
           {loading ? (
             <>
@@ -566,7 +522,6 @@ function TemplateListItem({ template, loading, onCustomize, thumbnailUrl }: Omit
       {/* Info */}
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-gray-200 group-hover:text-cyan-400 transition-colors truncate">
-          {template.featured && <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 inline mr-1" />}
           {template.name}
         </h3>
         <p className="text-sm text-gray-500 line-clamp-1">{template.description}</p>
