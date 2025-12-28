@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Library, Search, Filter, Star, Sparkles, ArrowUpDown, LayoutGrid, List, Clock, Gauge, Loader2, Camera } from "lucide-react"
@@ -18,6 +18,7 @@ import {
 import { TEMPLATES, CATEGORIES, type Template } from "@/lib/templates"
 import { useModelStore } from "@/lib/store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
+import { createClient } from "@/lib/supabase/client"
 import type { GeometryData } from "@/lib/types"
 
 const ThumbnailCaptureModal = dynamic(
@@ -54,6 +55,7 @@ export default function LibraryPage() {
   const [captureGeometry, setCaptureGeometry] = useState<GeometryData | null>(null)
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({})
   const router = useRouter()
+  const supabase = createClient()
 
   const {
     setCode,
@@ -61,6 +63,33 @@ export default function LibraryPage() {
     setGeometry,
     setError,
   } = useModelStore()
+
+  // Load existing thumbnails from Supabase on mount
+  useEffect(() => {
+    const loadSupabaseThumbnails = async () => {
+      const urls: Record<string, string> = {}
+
+      for (const template of TEMPLATES) {
+        const { data } = supabase.storage
+          .from("thumbnails")
+          .getPublicUrl(`templates/${template.id}.png`)
+
+        // Check if thumbnail exists in Supabase
+        try {
+          const res = await fetch(data.publicUrl, { method: "HEAD" })
+          if (res.ok) {
+            urls[template.id] = `${data.publicUrl}?t=${Date.now()}`
+          }
+        } catch {
+          // Thumbnail doesn't exist in Supabase, will fall back to public folder
+        }
+      }
+
+      setThumbnailUrls(urls)
+    }
+
+    loadSupabaseThumbnails()
+  }, [supabase])
 
   // Parse print time string to minutes for sorting
   const parsePrintTime = (timeStr: string): number => {
@@ -156,8 +185,12 @@ export default function LibraryPage() {
   }, [setError])
 
   // Handle thumbnail captured and upload
+  // IMPORTANT: Capture templateId synchronously before async operations
+  // because capturingTemplate will be cleared when modal closes
   const handleThumbnailCaptured = useCallback(async (imageData: string) => {
-    if (!capturingTemplate) return
+    // Capture the template ID synchronously before modal closes
+    const templateId = capturingTemplate?.id
+    if (!templateId) return
 
     try {
       // Convert base64 to blob
@@ -172,8 +205,8 @@ export default function LibraryPage() {
 
       // Upload via API endpoint
       const formData = new FormData()
-      formData.append("file", blob, `${capturingTemplate.id}.png`)
-      formData.append("templateId", capturingTemplate.id)
+      formData.append("file", blob, `${templateId}.png`)
+      formData.append("templateId", templateId)
 
       const response = await fetch("/api/thumbnails/upload", {
         method: "POST",
@@ -188,7 +221,7 @@ export default function LibraryPage() {
       const { url } = await response.json()
 
       // Update local state to show new thumbnail
-      setThumbnailUrls(prev => ({ ...prev, [capturingTemplate.id]: url }))
+      setThumbnailUrls(prev => ({ ...prev, [templateId]: url }))
     } catch (err) {
       console.error("Failed to save thumbnail:", err)
       setError(err instanceof Error ? err.message : "Failed to save thumbnail")
@@ -346,6 +379,7 @@ export default function LibraryPage() {
                   template={template}
                   loading={loading === template.id}
                   onCustomize={handleCustomize}
+                  thumbnailUrl={thumbnailUrls[template.id]}
                 />
               ))}
             </div>
@@ -504,8 +538,11 @@ function TemplateCard({ template, loading, featured, onCustomize, onCapture, thu
 }
 
 // Compact list item for list view
-function TemplateListItem({ template, loading, onCustomize }: Omit<TemplateCardProps, "featured">) {
+function TemplateListItem({ template, loading, onCustomize, thumbnailUrl }: Omit<TemplateCardProps, "featured" | "onCapture">) {
   const [imageError, setImageError] = useState(false)
+
+  // Use custom thumbnail URL if available, otherwise fall back to static
+  const imgSrc = thumbnailUrl || `/templates/${template.id}.png`
 
   return (
     <div
@@ -520,7 +557,7 @@ function TemplateListItem({ template, loading, onCustomize }: Omit<TemplateCardP
           </div>
         ) : (
           <img
-            src={`/templates/${template.id}.png`}
+            src={imgSrc}
             alt={template.name}
             className="w-full h-full object-cover"
             onError={() => setImageError(true)}
