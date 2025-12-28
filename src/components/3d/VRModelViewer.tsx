@@ -2,8 +2,8 @@
 
 import { Suspense, useMemo, useEffect, useState } from "react"
 import { Canvas } from "@react-three/fiber"
-import { XR, createXRStore, XROrigin } from "@react-three/xr"
-import { Grid, Environment, Html, useProgress, Text } from "@react-three/drei"
+import { XR, createXRStore, XROrigin, useXR } from "@react-three/xr"
+import { Grid, Environment, Html, useProgress, Text, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 import { useModelStore } from "@/lib/store"
 import type { GeometryData } from "@/lib/types"
@@ -251,6 +251,8 @@ interface VRSceneContentProps {
 function VRSceneContent({ geometry, modelColor, modelName, showGrid, scale }: VRSceneContentProps) {
   const bufferGeometry = useBufferGeometry(geometry)
   const bounds = useModelBounds(bufferGeometry)
+  const xrState = useXR()
+  const isPresenting = !!xrState.session
 
   return (
     <>
@@ -261,6 +263,20 @@ function VRSceneContent({ geometry, modelColor, modelName, showGrid, scale }: VR
 
       {/* Environment for reflections */}
       <Environment preset="studio" />
+
+      {/* OrbitControls for desktop viewing (when not in VR) */}
+      {!isPresenting && (
+        <OrbitControls
+          makeDefault
+          enablePan={true}
+          enableZoom={true}
+          target={[0, 0.8, -0.5]}
+          minDistance={0.5}
+          maxDistance={10}
+          minPolarAngle={0}
+          maxPolarAngle={Math.PI / 1.5}
+        />
+      )}
 
       {/* Floor grid */}
       {showGrid && (
@@ -298,8 +314,8 @@ function VRSceneContent({ geometry, modelColor, modelName, showGrid, scale }: VR
         </Suspense>
       )}
 
-      {/* Controller hints */}
-      <ControllerHint />
+      {/* Controller hints (only show in VR) */}
+      {isPresenting && <ControllerHint />}
 
       {/* XR Origin for proper positioning */}
       <XROrigin position={[0, 0, 1]} />
@@ -406,8 +422,8 @@ export default function VRModelViewer({ onVRStart, onVREnd }: VRModelViewerProps
             {isInVR ? "In VR Mode" : "Enter VR"}
           </button>
         ) : (
-          <div className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg text-sm">
-            VR not supported on this device
+          <div className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg text-sm">
+            Desktop Mode - Drag to rotate, scroll to zoom
           </div>
         )}
 
@@ -426,9 +442,12 @@ export default function VRModelViewer({ onVRStart, onVREnd }: VRModelViewerProps
       </div>
 
       {/* Instructions */}
-      <div className="absolute top-4 left-4 text-xs text-gray-500 bg-gray-900/80 px-3 py-2 rounded">
-        <p>View your 3D model in VR at real scale</p>
-        <p className="mt-1">Requires VR headset (Quest, Vision Pro, etc.)</p>
+      <div className="absolute top-4 left-4 text-xs text-gray-400 bg-gray-900/80 px-3 py-2 rounded max-w-xs">
+        <p className="font-medium text-gray-300">3D Model Preview</p>
+        <p className="mt-1">Drag to rotate • Scroll to zoom • Right-drag to pan</p>
+        {isVRSupported && (
+          <p className="mt-1 text-cyan-400">VR headset detected - click Enter VR below</p>
+        )}
       </div>
     </div>
   )
