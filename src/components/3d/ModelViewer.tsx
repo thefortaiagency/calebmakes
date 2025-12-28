@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useRef, useMemo, useState, useCallback } from "react"
+import { Suspense, useRef, useMemo, useState, useCallback, useEffect } from "react"
 import { Canvas, useThree, ThreeEvent } from "@react-three/fiber"
 import { OrbitControls, Grid, Environment, Html, useProgress, TransformControls, Outlines } from "@react-three/drei"
 import * as THREE from "three"
@@ -153,6 +153,13 @@ function SelectedObjectGizmo() {
   const objects = useEditorStore((state) => state.objects)
   const activeTool = useEditorStore((state) => state.activeTool)
   const setObjectTransform = useEditorStore((state) => state.setObjectTransform)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Track mounted state to prevent updates during initial render
+  useEffect(() => {
+    setIsMounted(true)
+    return () => setIsMounted(false)
+  }, [])
 
   const selectedObject = useMemo(() => {
     if (selectedIds.length !== 1) return null
@@ -166,12 +173,64 @@ function SelectedObjectGizmo() {
     return null
   }, [activeTool])
 
-  if (!selectedObject || !transformMode || selectedObject.locked) return null
-
-  const bufferGeometry = useBufferGeometry(selectedObject.geometry)
+  // Hooks must be called unconditionally - pass null geometry when no selection
+  const bufferGeometry = useBufferGeometry(selectedObject?.geometry ?? null)
   const baseOffset = useGeometryOffset(bufferGeometry)
 
-  if (!bufferGeometry) return null
+  // Store refs for use in callback to avoid stale closures
+  const baseOffsetRef = useRef(baseOffset)
+  const transformModeRef = useRef(transformMode)
+  const selectedObjectRef = useRef(selectedObject)
+
+  useEffect(() => {
+    baseOffsetRef.current = baseOffset
+    transformModeRef.current = transformMode
+    selectedObjectRef.current = selectedObject
+  }, [baseOffset, transformMode, selectedObject])
+
+  // Memoized callback to prevent recreating on every render
+  const handleObjectChange = useCallback((e: any) => {
+    if (!e || !isMounted) return
+    const target = e.target as any
+    if (!target.object) return
+
+    const obj = target.object
+    const currentBaseOffset = baseOffsetRef.current
+    const currentTransformMode = transformModeRef.current
+    const currentSelectedObject = selectedObjectRef.current
+
+    if (!currentSelectedObject || !currentTransformMode) return
+
+    // Defer the state update to the next microtask to avoid render-phase updates
+    queueMicrotask(() => {
+      if (currentTransformMode === "translate") {
+        setObjectTransform(currentSelectedObject.id, {
+          position: [
+            obj.position.x - currentBaseOffset[0],
+            obj.position.y - currentBaseOffset[1],
+            obj.position.z - currentBaseOffset[2],
+          ],
+        })
+      } else if (currentTransformMode === "rotate") {
+        setObjectTransform(currentSelectedObject.id, {
+          rotation: [
+            THREE.MathUtils.radToDeg(obj.rotation.x),
+            THREE.MathUtils.radToDeg(obj.rotation.y),
+            THREE.MathUtils.radToDeg(obj.rotation.z),
+          ],
+        })
+      } else if (currentTransformMode === "scale") {
+        setObjectTransform(currentSelectedObject.id, {
+          scale: [obj.scale.x, obj.scale.y, obj.scale.z],
+        })
+      }
+    })
+  }, [isMounted, setObjectTransform])
+
+  // Early return AFTER all hooks have been called
+  if (!selectedObject || !transformMode || selectedObject.locked || !bufferGeometry || !isMounted) {
+    return null
+  }
 
   const position: Vector3 = [
     baseOffset[0] + selectedObject.transform.position[0],
@@ -189,35 +248,7 @@ function SelectedObjectGizmo() {
         THREE.MathUtils.degToRad(selectedObject.transform.rotation[2]),
       ]}
       scale={selectedObject.transform.scale}
-      onObjectChange={(e) => {
-        if (!e) return
-        const target = e.target as any
-        if (!target.object) return
-
-        const obj = target.object
-
-        if (transformMode === "translate") {
-          setObjectTransform(selectedObject.id, {
-            position: [
-              obj.position.x - baseOffset[0],
-              obj.position.y - baseOffset[1],
-              obj.position.z - baseOffset[2],
-            ],
-          })
-        } else if (transformMode === "rotate") {
-          setObjectTransform(selectedObject.id, {
-            rotation: [
-              THREE.MathUtils.radToDeg(obj.rotation.x),
-              THREE.MathUtils.radToDeg(obj.rotation.y),
-              THREE.MathUtils.radToDeg(obj.rotation.z),
-            ],
-          })
-        } else if (transformMode === "scale") {
-          setObjectTransform(selectedObject.id, {
-            scale: [obj.scale.x, obj.scale.y, obj.scale.z],
-          })
-        }
-      }}
+      onObjectChange={handleObjectChange}
     />
   )
 }

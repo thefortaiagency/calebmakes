@@ -416,11 +416,13 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
     // Tool state
     setActiveTool: (tool) => {
-      set({ activeTool: tool })
+      // Batch both updates into a single set call to prevent race conditions
+      const updates: Partial<EditorState> = { activeTool: tool }
       // Auto-set transform mode based on tool
       if (tool === "translate" || tool === "rotate" || tool === "scale") {
-        set({ transformMode: tool })
+        updates.transformMode = tool
       }
+      set(updates)
     },
 
     setTransformMode: (mode) => {

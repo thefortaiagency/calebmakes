@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, Suspense, useRef } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X, Upload, GitFork } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,6 +12,7 @@ import { useModelStore } from "@/lib/store"
 import { useEditorStore } from "@/lib/stores/editor-store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import { downloadSTL } from "@/lib/jscad/stl-export"
+import { parseSTL, validateSTLFile, calculateBounds } from "@/lib/jscad/stl-import"
 import ParameterControls from "@/components/editor/ParameterControls"
 import HelpDialog from "@/components/editor/HelpDialog"
 import ObjectTree from "@/components/editor/ObjectTree"
@@ -97,6 +98,9 @@ function CreatePageContent() {
   const [shareableUrl, setShareableUrl] = useState("")
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null)
   const [urlParamsLoaded, setUrlParamsLoaded] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isForking, setIsForking] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
@@ -505,6 +509,131 @@ function CreatePageContent() {
     }
   }
 
+  // Handle STL file upload
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file
+    const validation = validateSTLFile(file)
+    if (!validation.valid) {
+      toast.error("Invalid file", { description: validation.error })
+      return
+    }
+
+    setIsUploading(true)
+    setError(null)
+
+    try {
+      // Parse the STL file
+      const geometry = await parseSTL(file)
+
+      // Calculate bounds for display info
+      const bounds = calculateBounds(geometry)
+
+      // Extract name from filename
+      const fileName = file.name.replace(/\.stl$/i, "")
+      setModelName(fileName)
+
+      // Set the geometry in the model store
+      setGeometry(geometry)
+
+      // Clear any existing code/parameters since this is an imported model
+      setCode("")
+      setParameters([])
+
+      // Show success message with dimensions
+      toast.success("STL imported successfully!", {
+        description: `${fileName} (${bounds.size[0].toFixed(1)} x ${bounds.size[1].toFixed(1)} x ${bounds.size[2].toFixed(1)} mm)`,
+      })
+
+      // Switch to viewer on mobile
+      setMobileShowViewer(true)
+    } catch (err) {
+      console.error("STL import error:", err)
+      toast.error("Import failed", {
+        description: err instanceof Error ? err.message : "Failed to parse STL file",
+      })
+    } finally {
+      setIsUploading(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }
+
+  // Fork model to My Models
+  const handleFork = async () => {
+    if (!user) {
+      toast.error("Sign in required", {
+        description: "Please sign in to save models to your library.",
+      })
+      return
+    }
+
+    // Determine which geometry to fork
+    const geometryToFork = editorObjects.length > 0
+      ? editorObjects[0]?.geometry
+      : geometry
+
+    if (!geometryToFork) {
+      toast.error("No model to fork", {
+        description: "Generate or upload a model first.",
+      })
+      return
+    }
+
+    setIsForking(true)
+
+    try {
+      // Capture thumbnail
+      const thumbnailUrl = await captureThumbnail()
+
+      // Calculate dimensions from geometry
+      const bounds = calculateBounds(geometryToFork)
+
+      // Prepare model data
+      const modelData = {
+        user_id: user.id,
+        name: `${modelName} (Fork)`,
+        description: response?.description || `Forked model from ${currentTemplateId ? "template" : "upload"}`,
+        code: code || "// Imported STL - no parametric code",
+        parameters: response?.parameters || parameters || [],
+        category: response?.category || "custom",
+        difficulty: response?.difficulty || "easy",
+        dimensions: {
+          width: Math.round(bounds.size[0]),
+          depth: Math.round(bounds.size[1]),
+          height: Math.round(bounds.size[2]),
+        },
+        estimated_print_time: response?.estimatedPrintTime || "Varies",
+        notes: response?.notes || [],
+        thumbnail_url: thumbnailUrl,
+        is_public: false,
+      }
+
+      const { error: insertError } = await supabase.from("models").insert(modelData)
+
+      if (insertError) throw insertError
+
+      toast.success("Model forked!", {
+        description: "Your model has been saved to My Models.",
+        action: {
+          label: "View",
+          onClick: () => window.location.href = "/my-models",
+        },
+      })
+    } catch (err) {
+      console.error("Fork error:", err)
+      toast.error("Fork failed", {
+        description: err instanceof Error ? err.message : "Failed to save model",
+      })
+    } finally {
+      setIsForking(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Simple Header */}
@@ -631,8 +760,8 @@ function CreatePageContent() {
               </div>
             )}
 
-            {/* Browse Library */}
-            <div className="mt-3 pt-3 border-t border-gray-700">
+            {/* Browse Library & Upload */}
+            <div className="mt-3 pt-3 border-t border-gray-700 space-y-2">
               <Link href="/library">
                 <Button
                   variant="outline"
@@ -643,8 +772,34 @@ function CreatePageContent() {
                   Browse Template Library
                 </Button>
               </Link>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                60+ ready-to-print templates
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".stl"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+
+              {/* Upload STL Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4 mr-2" />
+                )}
+                {isUploading ? "Importing..." : "Upload STL File"}
+              </Button>
+
+              <p className="text-xs text-gray-500 text-center">
+                Import from Thingiverse, Printables, etc.
               </p>
             </div>
           </div>
@@ -759,6 +914,23 @@ function CreatePageContent() {
               >
                 <Share2 className="w-4 h-4 lg:mr-2" />
                 <span className="hidden lg:inline">Share</span>
+              </Button>
+            )}
+            {user && (geometry || editorObjects.length > 0) && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleFork}
+                disabled={isForking}
+                className="bg-purple-600/80 hover:bg-purple-500/80 backdrop-blur-sm"
+                title="Fork to My Models"
+              >
+                {isForking ? (
+                  <Loader2 className="w-4 h-4 lg:mr-2 animate-spin" />
+                ) : (
+                  <GitFork className="w-4 h-4 lg:mr-2" />
+                )}
+                <span className="hidden lg:inline">{isForking ? "Forking..." : "Fork"}</span>
               </Button>
             )}
             <Button
