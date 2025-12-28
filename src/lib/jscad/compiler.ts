@@ -11,10 +11,60 @@ function getWorker(): Worker {
   return worker
 }
 
+/**
+ * Pre-process JSCAD code to fix common roundRadius errors
+ * Injects a safeRadius helper and wraps roundRadius values
+ */
+function preprocessCode(code: string): string {
+  // Add safeRadius helper function at the start of main function
+  const safeRadiusHelper = `
+  // Auto-injected safe radius helper
+  const __safeRadius = (size, requestedRadius) => {
+    const minDim = Math.min(...(Array.isArray(size) ? size : [size]));
+    const maxAllowed = minDim * 0.45; // 45% of smallest dimension
+    return Math.min(Math.max(0.5, requestedRadius), maxAllowed);
+  };
+`;
+
+  // Inject helper after 'function main' opening brace
+  let processedCode = code.replace(
+    /(function\s+main\s*\([^)]*\)\s*\{)/,
+    `$1${safeRadiusHelper}`
+  )
+
+  // Fix roundedCuboid calls with hardcoded roundRadius values
+  // Match: roundedCuboid({ size: [...], roundRadius: X })
+  processedCode = processedCode.replace(
+    /roundedCuboid\s*\(\s*\{\s*size\s*:\s*(\[[^\]]+\])\s*,\s*roundRadius\s*:\s*([^}]+?)\s*\}/g,
+    (match, size, radius) => {
+      // Check if radius is already using safeRadius or __safeRadius
+      if (radius.includes('safeRadius') || radius.includes('__safeRadius')) {
+        return match
+      }
+      return `roundedCuboid({ size: ${size}, roundRadius: __safeRadius(${size}, ${radius.trim()}) })`
+    }
+  )
+
+  // Also handle the reverse order: roundRadius before size
+  processedCode = processedCode.replace(
+    /roundedCuboid\s*\(\s*\{\s*roundRadius\s*:\s*([^,]+?)\s*,\s*size\s*:\s*(\[[^\]]+\])\s*\}/g,
+    (match, radius, size) => {
+      if (radius.includes('safeRadius') || radius.includes('__safeRadius')) {
+        return match
+      }
+      return `roundedCuboid({ size: ${size}, roundRadius: __safeRadius(${size}, ${radius.trim()}) })`
+    }
+  )
+
+  return processedCode
+}
+
 export async function compileJSCAD(
   code: string,
   parameters: Record<string, number | boolean | string> = {}
 ): Promise<GeometryData> {
+  // Pre-process code to fix roundRadius issues
+  const processedCode = preprocessCode(code)
   return new Promise((resolve, reject) => {
     const w = getWorker()
 
@@ -38,7 +88,7 @@ export async function compileJSCAD(
     }
 
     w.addEventListener("message", handleMessage)
-    w.postMessage({ type: "compile", code, parameters })
+    w.postMessage({ type: "compile", code: processedCode, parameters })
   })
 }
 

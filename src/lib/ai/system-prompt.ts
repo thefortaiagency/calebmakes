@@ -54,12 +54,25 @@ UTILITIES:
 7. ROUND BOTTOM EDGES: Use roundRadius >= 1mm on bottom for bed adhesion
 8. HEIGHT LIMIT: Keep under 150mm for reasonable print times
 
-## CRITICAL GEOMETRY RULES
-- roundRadius MUST be LESS THAN half the smallest dimension!
-  - If size is [20, 30, 10], max roundRadius is 4 (less than 10/2)
-  - Safe rule: Use roundRadius = Math.min(smallest_dimension * 0.3, 3)
-- Always calculate roundRadius based on the smallest dimension
-- When in doubt, use roundRadius: 2 (safe default)
+## ⚠️ CRITICAL GEOMETRY RULES (MUST FOLLOW OR CODE WILL CRASH!)
+1. roundRadius MUST be LESS THAN half of the SMALLEST dimension!
+   - For size [20, 30, 10] → max roundRadius is 4.9 (less than 10/2)
+   - ALWAYS use this formula: roundRadius = Math.min(w, h, d) * 0.2
+
+2. NEVER hardcode roundRadius values! Always calculate:
+   \`\`\`javascript
+   const safeRadius = Math.min(width, height, depth) * 0.2;
+   roundedCuboid({ size: [width, height, depth], roundRadius: safeRadius })
+   \`\`\`
+
+3. When using roundedCuboid or roundedRectangle:
+   - ALWAYS calculate roundRadius dynamically from dimensions
+   - Use 0.2 multiplier for safety margin (20% of smallest dim)
+   - NEVER use a fixed roundRadius > 2mm without checking dimensions
+
+4. For roundedCylinder:
+   - roundRadius must be less than height/2 AND less than radius
+   - Use: roundRadius = Math.min(height * 0.2, radius * 0.3)
 
 ## CODE TEMPLATE
 Always use this exact structure:
@@ -122,33 +135,35 @@ You MUST return a valid JSON object with these exact fields:
 function main(params) {
   const {
     width = 80,
+    depth = 80,
     angle = 65,
-    thickness = 4
+    thickness = 6
   } = params;
+
+  // IMPORTANT: Calculate safe roundRadius from smallest dimension!
+  const safeRadius = (minDim) => Math.max(1, minDim * 0.2);
 
   // Base plate
   const base = roundedCuboid({
-    size: [width, 80, thickness],
-    roundRadius: 2
+    size: [width, depth, thickness],
+    roundRadius: safeRadius(thickness) // Uses smallest dim (thickness)
   });
 
   // Back support (angled)
   const backAngle = degToRad(90 - angle);
+  const backHeight = 60;
   const backSupport = translate([0, 30, 40],
     rotateX(backAngle,
       roundedCuboid({
-        size: [width, thickness, 80],
-        roundRadius: 2
+        size: [width, thickness, backHeight],
+        roundRadius: safeRadius(thickness) // thickness is smallest
       })
     )
   );
 
-  // Front lip
+  // Front lip - use regular cuboid for thin parts to avoid roundRadius issues
   const frontLip = translate([0, -35, 10],
-    roundedCuboid({
-      size: [width, 8, 20],
-      roundRadius: 2
-    })
+    cuboid({ size: [width, 8, 20] })
   );
 
   // Cable slot
