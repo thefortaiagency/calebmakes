@@ -3,9 +3,9 @@
 import { Suspense, useMemo, useEffect, useState, useRef, useCallback } from "react"
 import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber"
 import { XR, createXRStore, XROrigin, useXR } from "@react-three/xr"
-import { Grid, Environment, Html, useProgress, Text, OrbitControls } from "@react-three/drei"
+import { Grid, Environment, Html, useProgress, Text, OrbitControls, useGLTF, Center } from "@react-three/drei"
 import * as THREE from "three"
-import { useModelStore } from "@/lib/store"
+import { useModelStore, type ViewMode } from "@/lib/store"
 import type { GeometryData } from "@/lib/types"
 
 // Create XR store for VR session management with hand tracking enabled
@@ -662,14 +662,19 @@ interface VRSceneContentProps {
   showGrid: boolean
   initialScale: number
   onScaleChange?: (scale: number) => void
+  glbUrl?: string | null
+  viewMode?: ViewMode
 }
 
-function VRSceneContent({ geometry, modelColor, modelName, showGrid, initialScale, onScaleChange }: VRSceneContentProps) {
+function VRSceneContent({ geometry, modelColor, modelName, showGrid, initialScale, onScaleChange, glbUrl, viewMode }: VRSceneContentProps) {
   const bufferGeometry = useBufferGeometry(geometry)
   const bounds = useModelBounds(bufferGeometry)
   const xrState = useXR()
   const isPresenting = !!xrState.session
   const [currentScale, setCurrentScale] = useState(initialScale)
+
+  // Determine if we should show textured model
+  const showTextured = viewMode === "photo" && glbUrl
 
   const handleScaleChange = (newScale: number) => {
     setCurrentScale(newScale)
@@ -678,13 +683,14 @@ function VRSceneContent({ geometry, modelColor, modelName, showGrid, initialScal
 
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[5, 10, 5]} intensity={1} castShadow />
-      <directionalLight position={[-5, 5, -5]} intensity={0.3} />
+      {/* Lighting - brighter for textured models */}
+      <ambientLight intensity={showTextured ? 0.7 : 0.5} />
+      <directionalLight position={[5, 10, 5]} intensity={showTextured ? 1.2 : 1} castShadow />
+      <directionalLight position={[-5, 5, -5]} intensity={showTextured ? 0.5 : 0.3} />
+      {showTextured && <directionalLight position={[0, -5, 0]} intensity={0.3} />}
 
-      {/* Environment for reflections */}
-      <Environment preset="studio" />
+      {/* Environment for reflections - city preset better for textures */}
+      <Environment preset={showTextured ? "city" : "studio"} />
 
       {/* Desktop controls (when not in VR) */}
       {!isPresenting && (
@@ -727,22 +733,28 @@ function VRSceneContent({ geometry, modelColor, modelName, showGrid, initialScal
 
       {/* Info panel */}
       <InfoPanel
-        modelName={modelName}
+        modelName={showTextured ? `${modelName} (Photo)` : modelName}
         bounds={bounds}
         scale={currentScale}
       />
 
-      {/* The 3D model */}
-      {geometry && (
-        <Suspense fallback={<Loader />}>
+      {/* The 3D model - textured or solid based on viewMode */}
+      <Suspense fallback={<Loader />}>
+        {showTextured ? (
+          <TexturedVRModel
+            glbUrl={glbUrl}
+            initialScale={0.5}
+            onScaleChange={handleScaleChange}
+          />
+        ) : geometry ? (
           <VRModel
             geometry={geometry}
             color={modelColor}
             initialScale={initialScale}
             onScaleChange={handleScaleChange}
           />
-        </Suspense>
-      )}
+        ) : null}
+      </Suspense>
 
       {/* VR Controllers and Hands are rendered automatically by @react-three/xr v6 */}
       {/* The XR store is configured with hand: true and controller: true */}
@@ -756,13 +768,290 @@ function VRSceneContent({ geometry, modelColor, modelName, showGrid, initialScal
   )
 }
 
+// Textured model component for Photo mode in VR
+interface TexturedVRModelProps {
+  glbUrl: string
+  initialScale: number
+  onScaleChange?: (scale: number) => void
+}
+
+function TexturedVRModel({ glbUrl, initialScale, onScaleChange }: TexturedVRModelProps) {
+  const { scene } = useGLTF(glbUrl)
+  const groupRef = useRef<THREE.Group>(null)
+  const { gl } = useThree()
+  const xrState = useXR()
+  const isInVR = !!xrState.session
+
+  // VR grab state
+  const [isGrabbed, setIsGrabbed] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
+
+  // Dynamic scale for VR manipulation
+  const [modelScale, setModelScale] = useState(initialScale)
+  const scaleRef = useRef(initialScale)
+
+  // Process the scene to ensure textures display correctly
+  useEffect(() => {
+    if (scene) {
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = true
+          child.receiveShadow = true
+
+          // Ensure materials have proper encoding for textures
+          if (child.material) {
+            const materials = Array.isArray(child.material) ? child.material : [child.material]
+            materials.forEach((mat: THREE.Material) => {
+              if (mat instanceof THREE.MeshStandardMaterial || mat instanceof THREE.MeshPhysicalMaterial) {
+                // Ensure textures use sRGB color space
+                if (mat.map) {
+                  mat.map.colorSpace = THREE.SRGBColorSpace
+                  mat.map.needsUpdate = true
+                }
+                // Make materials more vibrant
+                mat.envMapIntensity = 1.0
+                mat.needsUpdate = true
+              }
+            })
+          }
+        }
+      })
+    }
+  }, [scene])
+
+  // Grab tracking
+  const grabStartPosition = useRef(new THREE.Vector3())
+  const lastControllerPosition = useRef<THREE.Vector3 | null>(null)
+
+  // Model position offset (controlled by arrow keys or VR grab)
+  const offset = useRef({ x: 0, y: 0.8, z: -0.5 })
+  // Model rotation (controlled by R + arrow keys)
+  const rotation = useRef({ x: 0, y: 0 })
+  const keys = useRef({
+    arrowUp: false, arrowDown: false, arrowLeft: false, arrowRight: false,
+    r: false,
+    pageUp: false, pageDown: false,
+    plus: false, minus: false,
+  })
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp') keys.current.arrowUp = true
+      if (e.key === 'ArrowDown') keys.current.arrowDown = true
+      if (e.key === 'ArrowLeft') keys.current.arrowLeft = true
+      if (e.key === 'ArrowRight') keys.current.arrowRight = true
+      if (e.key === 'r' || e.key === 'R') keys.current.r = true
+      if (e.key === 'PageUp') keys.current.pageUp = true
+      if (e.key === 'PageDown') keys.current.pageDown = true
+      if (e.key === '+' || e.key === '=') keys.current.plus = true
+      if (e.key === '-' || e.key === '_') keys.current.minus = true
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp') keys.current.arrowUp = false
+      if (e.key === 'ArrowDown') keys.current.arrowDown = false
+      if (e.key === 'ArrowLeft') keys.current.arrowLeft = false
+      if (e.key === 'ArrowRight') keys.current.arrowRight = false
+      if (e.key === 'r' || e.key === 'R') keys.current.r = false
+      if (e.key === 'PageUp') keys.current.pageUp = false
+      if (e.key === 'PageDown') keys.current.pageDown = false
+      if (e.key === '+' || e.key === '=') keys.current.plus = false
+      if (e.key === '-' || e.key === '_') keys.current.minus = false
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
+
+  // Get controller position from XR session
+  const getControllerPosition = useCallback((): THREE.Vector3 | null => {
+    if (!xrState.session) return null
+
+    const session = xrState.session
+    const frame = (gl.xr as any).getFrame?.()
+    const referenceSpace = (gl.xr as any).getReferenceSpace?.()
+
+    if (!frame || !referenceSpace) return null
+
+    const inputSources = session.inputSources
+
+    for (const inputSource of inputSources) {
+      const space = inputSource.gripSpace || inputSource.targetRaySpace
+      if (space) {
+        const pose = frame.getPose(space, referenceSpace)
+        if (pose) {
+          const pos = pose.transform.position
+          return new THREE.Vector3(pos.x, pos.y, pos.z)
+        }
+      }
+    }
+
+    return null
+  }, [xrState.session, gl])
+
+  // Listen for VR controller events
+  useEffect(() => {
+    if (!xrState.session) return
+
+    const session = xrState.session
+
+    const handleSelectStart = () => {
+      if (!groupRef.current) return
+      setIsGrabbed(true)
+
+      const controllerPos = getControllerPosition()
+      if (controllerPos) {
+        grabStartPosition.current.copy(groupRef.current.position)
+        lastControllerPosition.current = controllerPos.clone()
+      }
+    }
+
+    const handleSelectEnd = () => {
+      setIsGrabbed(false)
+      lastControllerPosition.current = null
+
+      if (groupRef.current) {
+        offset.current.x = groupRef.current.position.x
+        offset.current.y = groupRef.current.position.y
+        offset.current.z = groupRef.current.position.z
+      }
+    }
+
+    const handleSqueezeStart = () => {
+      const maxScale = initialScale * 8
+      if (scaleRef.current >= maxScale * 0.9) {
+        scaleRef.current = initialScale
+      } else {
+        scaleRef.current = Math.min(scaleRef.current * 2, maxScale)
+      }
+      setModelScale(scaleRef.current)
+      onScaleChange?.(scaleRef.current)
+    }
+
+    session.addEventListener('selectstart', handleSelectStart)
+    session.addEventListener('selectend', handleSelectEnd)
+    session.addEventListener('squeezestart', handleSqueezeStart)
+
+    return () => {
+      session.removeEventListener('selectstart', handleSelectStart)
+      session.removeEventListener('selectend', handleSelectEnd)
+      session.removeEventListener('squeezestart', handleSqueezeStart)
+    }
+  }, [xrState.session, getControllerPosition, initialScale, onScaleChange])
+
+  useFrame((state, delta) => {
+    if (!groupRef.current) return
+
+    const moveSpeed = delta * 0.5
+    const rotateSpeed = delta * 1.5
+    const scaleSpeedVal = delta * 2
+
+    // VR grab handling
+    if (isGrabbed && isInVR) {
+      const currentPos = getControllerPosition()
+      if (currentPos && lastControllerPosition.current) {
+        const deltaPos = currentPos.clone().sub(lastControllerPosition.current)
+        groupRef.current.position.add(deltaPos)
+        lastControllerPosition.current = currentPos.clone()
+      }
+      return
+    }
+
+    // Keyboard scale controls
+    if (keys.current.plus) {
+      scaleRef.current = Math.min(scaleRef.current * (1 + scaleSpeedVal), 5)
+      setModelScale(scaleRef.current)
+      onScaleChange?.(scaleRef.current)
+    }
+    if (keys.current.minus) {
+      scaleRef.current = Math.max(scaleRef.current * (1 - scaleSpeedVal), 0.01)
+      setModelScale(scaleRef.current)
+      onScaleChange?.(scaleRef.current)
+    }
+
+    // Keyboard controls
+    if (keys.current.r) {
+      if (keys.current.arrowLeft) rotation.current.y += rotateSpeed
+      if (keys.current.arrowRight) rotation.current.y -= rotateSpeed
+      if (keys.current.arrowUp) rotation.current.x += rotateSpeed
+      if (keys.current.arrowDown) rotation.current.x -= rotateSpeed
+    } else {
+      if (keys.current.arrowUp) offset.current.z -= moveSpeed
+      if (keys.current.arrowDown) offset.current.z += moveSpeed
+      if (keys.current.arrowLeft) offset.current.x -= moveSpeed
+      if (keys.current.arrowRight) offset.current.x += moveSpeed
+    }
+
+    if (keys.current.pageUp) offset.current.y += moveSpeed
+    if (keys.current.pageDown) offset.current.y -= moveSpeed
+
+    groupRef.current.position.set(offset.current.x, offset.current.y, offset.current.z)
+    groupRef.current.rotation.set(rotation.current.x, rotation.current.y, 0)
+  })
+
+  return (
+    <group ref={groupRef} position={[0, 0.8, -0.5]}>
+      <Center>
+        <primitive
+          object={scene}
+          scale={modelScale}
+          onPointerOver={() => setIsHovered(true)}
+          onPointerOut={() => setIsHovered(false)}
+        />
+      </Center>
+
+      {/* Scale indicator */}
+      <Text
+        position={[0, 0.5, 0]}
+        fontSize={0.03}
+        color="#ffaa00"
+        anchorX="center"
+        anchorY="middle"
+      >
+        {`${modelScale.toFixed(2)}x Scale (Photo Mode)`}
+      </Text>
+
+      {/* Grab indicator for VR */}
+      {isHovered && !isGrabbed && (
+        <Text
+          position={[0, 0.7, 0]}
+          fontSize={0.04}
+          color="#00d4ff"
+          anchorX="center"
+          anchorY="middle"
+        >
+          Trigger to grab • Grip to enlarge
+        </Text>
+      )}
+      {isGrabbed && (
+        <Text
+          position={[0, 0.7, 0]}
+          fontSize={0.04}
+          color="#00ff88"
+          anchorX="center"
+          anchorY="middle"
+        >
+          Grabbed! Move to reposition
+        </Text>
+      )}
+    </group>
+  )
+}
+
 // Props for the VR viewer
 export interface VRModelViewerProps {
   onVRStart?: () => void
   onVREnd?: () => void
+  glbUrl?: string | null
+  viewMode?: ViewMode
 }
 
-export default function VRModelViewer({ onVRStart, onVREnd }: VRModelViewerProps) {
+export default function VRModelViewer({ onVRStart, onVREnd, glbUrl, viewMode }: VRModelViewerProps) {
   const geometry = useModelStore((state) => state.geometry)
   const modelColor = useModelStore((state) => state.modelColor)
   const [isVRSupported, setIsVRSupported] = useState(false)
@@ -826,7 +1115,10 @@ export default function VRModelViewer({ onVRStart, onVREnd }: VRModelViewerProps
           antialias: true,
           alpha: true,
           powerPreference: "high-performance",
+          preserveDrawingBuffer: true,
         }}
+        shadows
+        dpr={[1, 2]}
       >
         <XR store={xrStore}>
           <VRSceneContent
@@ -835,6 +1127,8 @@ export default function VRModelViewer({ onVRStart, onVREnd }: VRModelViewerProps
             modelName="3D Model"
             showGrid={true}
             initialScale={scale}
+            glbUrl={glbUrl}
+            viewMode={viewMode}
           />
         </XR>
       </Canvas>

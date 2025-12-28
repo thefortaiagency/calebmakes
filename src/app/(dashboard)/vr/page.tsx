@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { ArrowLeft, Glasses, Monitor, Maximize2, Info } from "lucide-react"
+import { ArrowLeft, Glasses, Monitor, Maximize2, Info, Camera, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useModelStore } from "@/lib/store"
 
@@ -22,6 +22,9 @@ const VRModelViewer = dynamic(() => import("@/components/3d/VRModelViewer"), {
 
 export default function VRPage() {
   const geometry = useModelStore((state) => state.geometry)
+  const glbUrl = useModelStore((state) => state.glbUrl)
+  const viewMode = useModelStore((state) => state.viewMode)
+  const setViewMode = useModelStore((state) => state.setViewMode)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isInVR, setIsInVR] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
@@ -72,6 +75,36 @@ export default function VRPage() {
             </div>
           )}
 
+          {/* View Mode Toggle - only show when GLB URL exists */}
+          {glbUrl && (
+            <div className="flex items-center bg-gray-800 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("print")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  viewMode === "print"
+                    ? "bg-cyan-600 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-700"
+                }`}
+                title="Print View - Solid color"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print
+              </button>
+              <button
+                onClick={() => setViewMode("photo")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  viewMode === "photo"
+                    ? "bg-purple-600 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-700"
+                }`}
+                title="Photo View - Original textures"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                Photo
+              </button>
+            </div>
+          )}
+
           <Button
             variant="ghost"
             size="sm"
@@ -107,10 +140,12 @@ export default function VRPage() {
 
       {/* Main VR viewer area */}
       <main className="flex-1 relative">
-        {geometry ? (
+        {geometry || (viewMode === "photo" && glbUrl) ? (
           <VRModelViewer
             onVRStart={() => setIsInVR(true)}
             onVREnd={() => setIsInVR(false)}
+            glbUrl={glbUrl}
+            viewMode={viewMode}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gray-900">
