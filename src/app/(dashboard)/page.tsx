@@ -158,7 +158,7 @@ export default function HomePage() {
                     {template.name}
                   </h3>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-gray-500">{template.prints.toLocaleString()} prints</span>
+                    <span className="text-xs text-gray-500">{template.estimatedPrintTime}</span>
                     <span className="text-xs text-cyan-400 capitalize">{template.difficulty}</span>
                   </div>
                 </CardContent>

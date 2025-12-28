@@ -221,16 +221,13 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
         </p>
 
         {/* Meta */}
-        <div className="flex items-center justify-between mt-2 sm:mt-3">
-          <div className="flex gap-1 sm:gap-2">
-            <Badge variant="secondary" className="text-[10px] sm:text-xs capitalize px-1.5 sm:px-2">
-              {template.difficulty}
-            </Badge>
-            <Badge variant="outline" className="text-[10px] sm:text-xs text-gray-400 border-gray-700 px-1.5 sm:px-2 hidden sm:inline-flex">
-              {template.estimatedPrintTime}
-            </Badge>
-          </div>
-          <span className="text-[10px] sm:text-xs text-gray-500 hidden sm:block">{template.prints.toLocaleString()} prints</span>
+        <div className="flex items-center gap-1 sm:gap-2 mt-2 sm:mt-3">
+          <Badge variant="secondary" className="text-[10px] sm:text-xs capitalize px-1.5 sm:px-2">
+            {template.difficulty}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] sm:text-xs text-gray-400 border-gray-700 px-1.5 sm:px-2">
+            {template.estimatedPrintTime}
+          </Badge>
         </div>
 
         {/* Action */}

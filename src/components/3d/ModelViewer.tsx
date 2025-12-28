@@ -26,6 +26,7 @@ function Loader() {
 function ModelMesh() {
   const meshRef = useRef<THREE.Mesh>(null)
   const geometry = useModelStore((state) => state.geometry)
+  const modelColor = useModelStore((state) => state.modelColor)
 
   const { bufferGeometry, offset } = useMemo(() => {
     if (!geometry) return { bufferGeometry: null, offset: [0, 0, 0] as [number, number, number] }
@@ -69,7 +70,7 @@ function ModelMesh() {
   return (
     <mesh ref={meshRef} geometry={bufferGeometry} position={offset}>
       <meshStandardMaterial
-        color="#00d4ff"
+        color={modelColor}
         metalness={0.1}
         roughness={0.4}
       />

@@ -3,7 +3,6 @@ import type { JSCADResponse } from "./types"
 export interface Template extends JSCADResponse {
   id: string
   name: string
-  prints: number
   featured?: boolean
 }
 
@@ -15,7 +14,6 @@ export const TEMPLATES: Template[] = [
     category: "phone-stand",
     difficulty: "easy",
     estimatedPrintTime: "45 min",
-    prints: 1234,
     featured: true,
     dimensions: { width: 80, depth: 70, height: 100 },
     parameters: [
@@ -87,7 +85,6 @@ export const TEMPLATES: Template[] = [
     category: "cable-organizer",
     difficulty: "easy",
     estimatedPrintTime: "30 min",
-    prints: 892,
     featured: true,
     dimensions: { width: 100, depth: 40, height: 30 },
     parameters: [
@@ -148,7 +145,6 @@ export const TEMPLATES: Template[] = [
     category: "pencil-holder",
     difficulty: "easy",
     estimatedPrintTime: "1 hr",
-    prints: 756,
     dimensions: { width: 80, depth: 80, height: 100 },
     parameters: [
       { name: "diameter", label: "Diameter", type: "number", default: 80, min: 50, max: 120, step: 5, unit: "mm" },
@@ -199,7 +195,6 @@ export const TEMPLATES: Template[] = [
     category: "wall-mount",
     difficulty: "medium",
     estimatedPrintTime: "40 min",
-    prints: 643,
     featured: true,
     dimensions: { width: 60, depth: 80, height: 40 },
     parameters: [
@@ -282,7 +277,6 @@ export const TEMPLATES: Template[] = [
     category: "box-with-lid",
     difficulty: "medium",
     estimatedPrintTime: "2 hr",
-    prints: 521,
     dimensions: { width: 80, depth: 60, height: 40 },
     parameters: [
       { name: "boxWidth", label: "Width", type: "number", default: 80, min: 40, max: 150, step: 5, unit: "mm" },
@@ -373,7 +367,6 @@ export const TEMPLATES: Template[] = [
     category: "decoration",
     difficulty: "easy",
     estimatedPrintTime: "50 min",
-    prints: 298,
     dimensions: { width: 100, depth: 80, height: 70 },
     parameters: [
       { name: "controllerWidth", label: "Controller Width", type: "number", default: 160, min: 120, max: 200, step: 5, unit: "mm" },
@@ -458,7 +451,6 @@ export const TEMPLATES: Template[] = [
     category: "desk-organizer",
     difficulty: "advanced",
     estimatedPrintTime: "3 hr",
-    prints: 367,
     dimensions: { width: 150, depth: 100, height: 80 },
     parameters: [
       { name: "width", label: "Total Width", type: "number", default: 150, min: 100, max: 200, step: 10, unit: "mm" },
@@ -534,7 +526,6 @@ export const TEMPLATES: Template[] = [
     category: "tablet-stand",
     difficulty: "medium",
     estimatedPrintTime: "1.5 hr",
-    prints: 489,
     dimensions: { width: 200, depth: 120, height: 150 },
     parameters: [
       { name: "tabletWidth", label: "Tablet Width", type: "number", default: 200, min: 150, max: 300, step: 10, unit: "mm" },
@@ -636,7 +627,6 @@ export const TEMPLATES: Template[] = [
     category: "fidget-toy",
     difficulty: "easy",
     estimatedPrintTime: "1 hr",
-    prints: 3421,
     featured: true,
     dimensions: { width: 60, depth: 60, height: 30 },
     parameters: [
@@ -718,7 +708,6 @@ export const TEMPLATES: Template[] = [
     category: "fidget-toy",
     difficulty: "easy",
     estimatedPrintTime: "25 min",
-    prints: 2156,
     featured: true,
     dimensions: { width: 75, depth: 75, height: 10 },
     parameters: [
@@ -801,7 +790,6 @@ export const TEMPLATES: Template[] = [
     category: "gridfinity",
     difficulty: "easy",
     estimatedPrintTime: "45 min",
-    prints: 1876,
     featured: true,
     dimensions: { width: 126, depth: 126, height: 5 },
     parameters: [
@@ -895,7 +883,6 @@ export const TEMPLATES: Template[] = [
     category: "gridfinity",
     difficulty: "easy",
     estimatedPrintTime: "40 min",
-    prints: 2341,
     dimensions: { width: 42, depth: 42, height: 42 },
     parameters: [
       { name: "gridX", label: "Width (units)", type: "number", default: 1, min: 1, max: 4, step: 1 },
@@ -987,7 +974,6 @@ export const TEMPLATES: Template[] = [
     category: "gaming",
     difficulty: "medium",
     estimatedPrintTime: "3 hr",
-    prints: 1523,
     featured: true,
     dimensions: { width: 150, depth: 100, height: 200 },
     parameters: [
@@ -1075,7 +1061,6 @@ export const TEMPLATES: Template[] = [
     category: "keyboard",
     difficulty: "easy",
     estimatedPrintTime: "2.5 hr",
-    prints: 987,
     dimensions: { width: 350, depth: 80, height: 25 },
     parameters: [
       { name: "length", label: "Length", type: "number", default: 350, min: 250, max: 450, step: 25, unit: "mm" },
@@ -1153,7 +1138,6 @@ export const TEMPLATES: Template[] = [
     category: "keyboard",
     difficulty: "medium",
     estimatedPrintTime: "20 min",
-    prints: 1432,
     dimensions: { width: 18, depth: 18, height: 12 },
     parameters: [
       { name: "topSize", label: "Top Size", type: "number", default: 12, min: 10, max: 16, step: 1, unit: "mm" },
@@ -1234,7 +1218,6 @@ export const TEMPLATES: Template[] = [
     category: "wall-mount",
     difficulty: "easy",
     estimatedPrintTime: "1.5 hr",
-    prints: 1654,
     dimensions: { width: 150, depth: 30, height: 60 },
     parameters: [
       { name: "hooks", label: "Number of Hooks", type: "number", default: 4, min: 2, max: 8, step: 1 },
@@ -1344,7 +1327,6 @@ export const TEMPLATES: Template[] = [
     category: "decoration",
     difficulty: "medium",
     estimatedPrintTime: "2.5 hr",
-    prints: 892,
     dimensions: { width: 60, depth: 60, height: 150 },
     parameters: [
       { name: "height", label: "Tower Height", type: "number", default: 150, min: 100, max: 200, step: 25, unit: "mm" },
@@ -1456,7 +1438,6 @@ export const TEMPLATES: Template[] = [
     category: "decoration",
     difficulty: "easy",
     estimatedPrintTime: "1.5 hr",
-    prints: 1243,
     featured: true,
     dimensions: { width: 150, depth: 100, height: 120 },
     parameters: [
@@ -1554,7 +1535,6 @@ export const TEMPLATES: Template[] = [
     category: "phone-stand",
     difficulty: "easy",
     estimatedPrintTime: "45 min",
-    prints: 1876,
     dimensions: { width: 60, depth: 50, height: 35 },
     parameters: [
       { name: "caseWidth", label: "Case Width", type: "number", default: 55, min: 45, max: 65, step: 2, unit: "mm" },
