@@ -168,7 +168,8 @@ export default function MyModelsPage() {
       const blob = new Blob([byteArray], { type: "image/png" })
 
       // Upload to Supabase Storage
-      const fileName = `models/${user.id}/${thumbnailModel.id}.png`
+      // Path format: {user_id}/{model_id}.png (user_id must be first folder for RLS policy)
+      const fileName = `${user.id}/${thumbnailModel.id}.png`
       const { error: uploadError } = await supabase.storage
         .from("thumbnails")
         .upload(fileName, blob, {
