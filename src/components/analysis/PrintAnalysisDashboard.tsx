@@ -32,9 +32,16 @@ import {
   Ruler,
   ThermometerSun,
   Lightbulb,
+  Wrench,
+  RotateCcw,
+  Maximize2,
+  Move,
+  Square,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 import { MATERIAL_PRESETS, type PrintAnalysis } from "@/lib/types/editor"
+import { getAvailableFixes, type AvailableFix } from "@/lib/analysis/geometry-fixes"
 
 interface MetricCardProps {
   icon: React.ReactNode
@@ -113,8 +120,12 @@ function PrintabilityScore({ score }: { score: number }) {
 
 export default function PrintAnalysisDashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isApplyingFix, setIsApplyingFix] = useState<string | null>(null)
+  const [availableFixes, setAvailableFixes] = useState<AvailableFix[]>([])
   const selectedObjects = useSelectedObjects()
   const legacyGeometry = useModelStore((state) => state.geometry)
+  const setGeometry = useModelStore((state) => state.setGeometry)
+  const updateObject = useEditorStore((state) => state.updateObject)
   const printAnalysis = useEditorStore((state) => state.printAnalysis)
   const setPrintAnalysis = useEditorStore((state) => state.setPrintAnalysis)
   const preferences = useEditorStore((state) => state.preferences)
@@ -144,10 +155,69 @@ export default function PrintAnalysisDashboard() {
       })
 
       setPrintAnalysis(analysis)
+
+      // Get available fixes based on analysis
+      const fixes = getAvailableFixes(geometryToAnalyze, analysis)
+      setAvailableFixes(fixes)
     } catch (error) {
       console.error("Analysis failed:", error)
     } finally {
       setIsAnalyzing(false)
+    }
+  }
+
+  const applyFix = async (fix: AvailableFix) => {
+    if (!geometryToAnalyze) return
+
+    setIsApplyingFix(fix.id)
+
+    try {
+      const result = fix.apply()
+
+      if (result.success) {
+        // Update the geometry in the appropriate store
+        if (selectedObjects.length > 0) {
+          // Update scene object
+          updateObject(selectedObjects[0].id, { geometry: result.geometry })
+        } else {
+          // Update legacy geometry
+          setGeometry(result.geometry)
+        }
+
+        toast.success("Fix applied!", {
+          description: result.description,
+        })
+
+        // Re-run analysis to update metrics
+        setTimeout(() => runAnalysis(), 100)
+      } else {
+        toast.info("No changes needed", {
+          description: result.description,
+        })
+      }
+    } catch (error) {
+      console.error("Fix failed:", error)
+      toast.error("Fix failed", {
+        description: "An error occurred while applying the fix.",
+      })
+    } finally {
+      setIsApplyingFix(null)
+    }
+  }
+
+  const getFixIcon = (fixId: string) => {
+    switch (fixId) {
+      case "rotate-optimal":
+        return <RotateCcw className="w-3 h-3" />
+      case "scale-to-fit":
+      case "thicken-walls":
+        return <Maximize2 className="w-3 h-3" />
+      case "center-on-bed":
+        return <Move className="w-3 h-3" />
+      case "add-base":
+        return <Square className="w-3 h-3" />
+      default:
+        return <Wrench className="w-3 h-3" />
     }
   }
 
@@ -446,6 +516,98 @@ export default function PrintAnalysisDashboard() {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
+
+                {/* Quick Fixes */}
+                {availableFixes.length > 0 && (
+                  <AccordionItem value="fixes" className="border border-cyan-700/50 rounded-lg bg-cyan-500/5">
+                    <AccordionTrigger className="px-3 py-2 hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <Wrench className="w-4 h-4 text-cyan-400" />
+                        <span className="text-sm">Quick Fixes</span>
+                        <span className="text-xs bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded">
+                          {availableFixes.filter(f => f.severity !== "info").length} available
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-3 pb-3">
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-400 mb-3">
+                          Click to automatically fix issues:
+                        </p>
+                        {availableFixes
+                          .filter(fix => fix.severity !== "info")
+                          .map((fix) => (
+                            <button
+                              key={fix.id}
+                              onClick={() => applyFix(fix)}
+                              disabled={isApplyingFix !== null}
+                              className={cn(
+                                "w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all",
+                                "border hover:border-cyan-500/50",
+                                fix.severity === "error"
+                                  ? "bg-red-500/10 border-red-500/30 hover:bg-red-500/20"
+                                  : "bg-yellow-500/10 border-yellow-500/30 hover:bg-yellow-500/20",
+                                isApplyingFix === fix.id && "opacity-50"
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "w-6 h-6 rounded flex items-center justify-center",
+                                  fix.severity === "error"
+                                    ? "bg-red-500/20 text-red-400"
+                                    : "bg-yellow-500/20 text-yellow-400"
+                                )}
+                              >
+                                {isApplyingFix === fix.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  getFixIcon(fix.id)
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-200">
+                                  {fix.name}
+                                </p>
+                                <p className="text-xs text-gray-400 truncate">
+                                  {fix.description}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+
+                        {/* Utility fixes (info level) */}
+                        <div className="pt-2 border-t border-gray-700 mt-3">
+                          <p className="text-xs text-gray-500 mb-2">Other adjustments:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {availableFixes
+                              .filter(fix => fix.severity === "info")
+                              .map((fix) => (
+                                <button
+                                  key={fix.id}
+                                  onClick={() => applyFix(fix)}
+                                  disabled={isApplyingFix !== null}
+                                  className={cn(
+                                    "flex items-center gap-1 px-2 py-1 rounded text-xs",
+                                    "bg-gray-800 border border-gray-700 hover:border-gray-600",
+                                    "text-gray-400 hover:text-gray-200 transition-colors",
+                                    isApplyingFix === fix.id && "opacity-50"
+                                  )}
+                                  title={fix.description}
+                                >
+                                  {isApplyingFix === fix.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    getFixIcon(fix.id)
+                                  )}
+                                  {fix.name}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
               </Accordion>
             </>
           )}
