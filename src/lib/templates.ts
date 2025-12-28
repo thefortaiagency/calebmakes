@@ -23,10 +23,10 @@ export const TEMPLATES: Template[] = [
     featured: true,
     dimensions: { width: 80, depth: 70, height: 100 },
     parameters: [
-      { name: "phoneWidth", label: "Phone Width", type: "number", default: 75, min: 60, max: 100, step: 1, unit: "mm" },
-      { name: "phoneThickness", label: "Phone Thickness", type: "number", default: 10, min: 6, max: 20, step: 1, unit: "mm" },
-      { name: "angle", label: "Viewing Angle", type: "number", default: 70, min: 45, max: 85, step: 5, unit: "deg" },
-      { name: "cableSlot", label: "Cable Slot", type: "boolean", default: true },
+      { name: "phoneWidth", label: "Phone Width", type: "number", default: 75, min: 60, max: 100, step: 1, unit: "mm", group: "Dimensions" },
+      { name: "phoneThickness", label: "Phone Thickness", type: "number", default: 10, min: 6, max: 20, step: 1, unit: "mm", group: "Dimensions" },
+      { name: "angle", label: "Viewing Angle", type: "number", default: 70, min: 45, max: 85, step: 5, unit: "deg", group: "Dimensions" },
+      { name: "cableSlot", label: "Cable Slot", type: "boolean", default: true, group: "Features" },
     ],
     notes: [
       "Print with supports for best results",
@@ -94,9 +94,9 @@ export const TEMPLATES: Template[] = [
     featured: true,
     dimensions: { width: 100, depth: 40, height: 30 },
     parameters: [
-      { name: "slotCount", label: "Number of Slots", type: "number", default: 5, min: 2, max: 8, step: 1 },
-      { name: "slotWidth", label: "Slot Width", type: "number", default: 8, min: 5, max: 15, step: 1, unit: "mm" },
-      { name: "slotDepth", label: "Slot Depth", type: "number", default: 20, min: 10, max: 30, step: 2, unit: "mm" },
+      { name: "slotCount", label: "Number of Slots", type: "number", default: 5, min: 2, max: 8, step: 1, group: "Features" },
+      { name: "slotWidth", label: "Slot Width", type: "number", default: 8, min: 5, max: 15, step: 1, unit: "mm", group: "Dimensions" },
+      { name: "slotDepth", label: "Slot Depth", type: "number", default: 20, min: 10, max: 30, step: 2, unit: "mm", group: "Dimensions" },
     ],
     notes: [
       "No supports needed",
@@ -153,9 +153,9 @@ export const TEMPLATES: Template[] = [
     estimatedPrintTime: "1 hr",
     dimensions: { width: 80, depth: 80, height: 100 },
     parameters: [
-      { name: "diameter", label: "Diameter", type: "number", default: 80, min: 50, max: 120, step: 5, unit: "mm" },
-      { name: "height", label: "Height", type: "number", default: 100, min: 60, max: 150, step: 10, unit: "mm" },
-      { name: "wallThickness", label: "Wall Thickness", type: "number", default: 3, min: 2, max: 6, step: 0.5, unit: "mm" },
+      { name: "diameter", label: "Diameter", type: "number", default: 80, min: 50, max: 120, step: 5, unit: "mm", group: "Dimensions" },
+      { name: "height", label: "Height", type: "number", default: 100, min: 60, max: 150, step: 10, unit: "mm", group: "Dimensions" },
+      { name: "wallThickness", label: "Wall Thickness", type: "number", default: 3, min: 2, max: 6, step: 0.5, unit: "mm", group: "Print" },
     ],
     notes: [
       "Print in spiral/vase mode for smooth finish",
@@ -204,10 +204,10 @@ export const TEMPLATES: Template[] = [
     featured: true,
     dimensions: { width: 60, depth: 80, height: 40 },
     parameters: [
-      { name: "hookWidth", label: "Hook Width", type: "number", default: 50, min: 30, max: 80, step: 5, unit: "mm" },
-      { name: "hookDepth", label: "Hook Depth", type: "number", default: 70, min: 50, max: 100, step: 5, unit: "mm" },
-      { name: "hookThickness", label: "Thickness", type: "number", default: 8, min: 5, max: 12, step: 1, unit: "mm" },
-      { name: "screwHoles", label: "Include Screw Holes", type: "boolean", default: true },
+      { name: "hookWidth", label: "Hook Width", type: "number", default: 50, min: 30, max: 80, step: 5, unit: "mm", group: "Dimensions" },
+      { name: "hookDepth", label: "Hook Depth", type: "number", default: 70, min: 50, max: 100, step: 5, unit: "mm", group: "Dimensions" },
+      { name: "hookThickness", label: "Thickness", type: "number", default: 8, min: 5, max: 12, step: 1, unit: "mm", group: "Print" },
+      { name: "screwHoles", label: "Include Screw Holes", type: "boolean", default: true, group: "Features" },
     ],
     notes: [
       "Print hook facing up with supports",
@@ -285,10 +285,10 @@ export const TEMPLATES: Template[] = [
     estimatedPrintTime: "2 hr",
     dimensions: { width: 80, depth: 60, height: 40 },
     parameters: [
-      { name: "boxWidth", label: "Width", type: "number", default: 80, min: 40, max: 150, step: 5, unit: "mm" },
-      { name: "boxDepth", label: "Depth", type: "number", default: 60, min: 30, max: 120, step: 5, unit: "mm" },
-      { name: "boxHeight", label: "Height", type: "number", default: 40, min: 20, max: 80, step: 5, unit: "mm" },
-      { name: "wallThickness", label: "Wall Thickness", type: "number", default: 2, min: 1.5, max: 4, step: 0.5, unit: "mm" },
+      { name: "boxWidth", label: "Width", type: "number", default: 80, min: 40, max: 150, step: 5, unit: "mm", group: "Dimensions" },
+      { name: "boxDepth", label: "Depth", type: "number", default: 60, min: 30, max: 120, step: 5, unit: "mm", group: "Dimensions" },
+      { name: "boxHeight", label: "Height", type: "number", default: 40, min: 20, max: 80, step: 5, unit: "mm", group: "Dimensions" },
+      { name: "wallThickness", label: "Wall Thickness", type: "number", default: 2, min: 1.5, max: 4, step: 0.5, unit: "mm", group: "Print" },
     ],
     notes: [
       "Print box and lid separately",

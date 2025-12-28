@@ -11,6 +11,7 @@ export const ParameterSchema = z.object({
   options: z.array(z.string()).optional(),
   label: z.string(),
   unit: z.string().optional(),
+  group: z.string().optional(), // Parameter group for organizing into collapsible sections
 })
 
 export type Parameter = z.infer<typeof ParameterSchema>
