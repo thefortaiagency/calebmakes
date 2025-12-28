@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, Suspense } from "react"
+import { useState, useCallback, useEffect, Suspense, useRef } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
 import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X } from "lucide-react"
@@ -97,7 +97,8 @@ function CreatePageContent() {
   const [shareableUrl, setShareableUrl] = useState("")
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null)
   const [urlParamsLoaded, setUrlParamsLoaded] = useState(false)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   // Get user on mount
   useEffect(() => {
@@ -106,7 +107,7 @@ function CreatePageContent() {
       setUser(user)
     }
     getUser()
-  }, [supabase.auth])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const {
     code,

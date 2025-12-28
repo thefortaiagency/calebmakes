@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Library, Search, Filter, Sparkles, ArrowUpDown, LayoutGrid, List, Gauge, Loader2, Camera, Heart, Clock } from "lucide-react"
@@ -58,7 +58,8 @@ export default function LibraryPage() {
   const [captureGeometry, setCaptureGeometry] = useState<GeometryData | null>(null)
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({})
   const router = useRouter()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const { isFavorite, toggleFavorite, favoritesCount } = useFavorites()
   const { recentTemplateIds, addRecentTemplate, isLoaded: recentLoaded } = useRecentTemplates()
 

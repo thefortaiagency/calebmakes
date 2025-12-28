@@ -21,6 +21,11 @@ export function useRecentTemplates() {
 
   // Load recent templates from localStorage on mount
   useEffect(() => {
+    if (typeof window === "undefined") {
+      setIsLoaded(true)
+      return
+    }
+
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
@@ -41,6 +46,8 @@ export function useRecentTemplates() {
 
   // Add a template to the recent list
   const addRecentTemplate = useCallback((templateId: string) => {
+    if (typeof window === "undefined") return
+
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       let entries: RecentTemplateEntry[] = stored ? JSON.parse(stored) : []
@@ -69,6 +76,8 @@ export function useRecentTemplates() {
 
   // Clear all recent templates
   const clearRecentTemplates = useCallback(() => {
+    if (typeof window === "undefined") return
+
     try {
       localStorage.removeItem(STORAGE_KEY)
       setRecentTemplateIds([])
