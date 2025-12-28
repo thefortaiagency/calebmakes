@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useEffect, useState, useRef } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { XR, createXRStore, XROrigin, useXR, useXRInputSourceState, Interactive } from "@react-three/xr"
+import { XR, createXRStore, XROrigin, useXR, Interactive, Controllers, Hands } from "@react-three/xr"
 import { Grid, Environment, Html, useProgress, Text, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 import { useModelStore } from "@/lib/store"
@@ -100,6 +100,7 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
   const [isGrabbed, setIsGrabbed] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const grabOffset = useRef(new THREE.Vector3())
+  const activeController = useRef<THREE.Object3D | null>(null)
 
   // Model position offset (controlled by arrow keys or VR grab)
   const offset = useRef({ x: 0, y: 0, z: 0 })
@@ -146,13 +147,59 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
     if (!groupRef.current) return
     setIsGrabbed(true)
 
-    // Calculate offset from controller/hand to model
-    const inputPos = e.target?.object?.position || new THREE.Vector3()
-    grabOffset.current.copy(groupRef.current.position).sub(inputPos)
+    // In @react-three/xr v6, we need to find the controller object
+    // Try multiple ways to get the input source's 3D object
+    let controllerObject: THREE.Object3D | null = null
+
+    // Method 1: Direct controller reference from event
+    if (e.controller) {
+      controllerObject = e.controller
+    }
+    // Method 2: From inputSource grip space
+    else if (e.inputSource?.gripSpace) {
+      // We need to find the Object3D that corresponds to this grip space
+      // This is typically the e.target for Interactive events
+      controllerObject = e.target
+    }
+    // Method 3: From target directly (Interactive wraps the mesh)
+    else if (e.target && e.target instanceof THREE.Object3D) {
+      // Walk up to find the controller group
+      let obj: THREE.Object3D | null = e.target
+      while (obj && !obj.userData?.inputSource) {
+        obj = obj.parent
+      }
+      controllerObject = obj
+    }
+    // Method 4: Use the intersection point and create a dummy tracker
+    else if (e.intersection?.point) {
+      // Create a dummy object at the intersection point
+      const dummy = new THREE.Object3D()
+      dummy.position.copy(e.intersection.point)
+      controllerObject = dummy
+    }
+
+    activeController.current = controllerObject
+
+    // Calculate offset from controller/hand to model (in world space)
+    if (activeController.current) {
+      const controllerWorldPos = new THREE.Vector3()
+      activeController.current.getWorldPosition(controllerWorldPos)
+      grabOffset.current.copy(groupRef.current.position).sub(controllerWorldPos)
+      console.log("VR Grab started, controller at:", controllerWorldPos)
+    } else {
+      // Fallback: use intersection point directly
+      if (e.intersection?.point) {
+        grabOffset.current.copy(groupRef.current.position).sub(e.intersection.point)
+        console.log("VR Grab started with intersection fallback")
+      }
+    }
   }
 
   const handleSelectEnd = () => {
     setIsGrabbed(false)
+    activeController.current = null
+    console.log("VR Grab ended")
+
     // Update the offset ref to current position so keyboard controls work from here
     if (groupRef.current) {
       offset.current.x = groupRef.current.position.x
@@ -176,11 +223,49 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
     const moveSpeed = delta * 0.5
     const rotateSpeed = delta * 1.5
 
-    // VR grab handling - follow controller
+    // VR grab handling - follow controller position
     if (isGrabbed && isInVR) {
-      // In VR, the model follows the controller
-      // The Interactive component handles this via onSelectStart/End
-      return
+      let controllerWorldPos: THREE.Vector3 | null = null
+      let controllerWorldQuat: THREE.Quaternion | null = null
+
+      // Try to get controller position from activeController ref
+      if (activeController.current) {
+        controllerWorldPos = new THREE.Vector3()
+        activeController.current.getWorldPosition(controllerWorldPos)
+        controllerWorldQuat = new THREE.Quaternion()
+        activeController.current.getWorldQuaternion(controllerWorldQuat)
+      }
+
+      // Fallback: Try to get from XR state controllers
+      if (!controllerWorldPos && xrState.session) {
+        // Access controllers through the XR frame
+        const controllers = (xrState as any).controllers
+        if (controllers && controllers.length > 0) {
+          const controller = controllers[0]
+          if (controller?.controller) {
+            controllerWorldPos = new THREE.Vector3()
+            controller.controller.getWorldPosition(controllerWorldPos)
+            controllerWorldQuat = new THREE.Quaternion()
+            controller.controller.getWorldQuaternion(controllerWorldQuat)
+            // Update active controller ref for next frame
+            activeController.current = controller.controller
+          }
+        }
+      }
+
+      // If we have a valid position, move the model
+      if (controllerWorldPos) {
+        // Move model to follow controller (plus original offset)
+        const newPos = controllerWorldPos.clone().add(grabOffset.current)
+        groupRef.current.position.copy(newPos)
+
+        // Optionally match controller rotation for more natural feel
+        if (controllerWorldQuat) {
+          groupRef.current.quaternion.copy(controllerWorldQuat)
+        }
+      }
+
+      return // Skip keyboard controls while VR grabbing
     }
 
     // Keyboard controls (desktop or when not grabbing in VR)
@@ -545,6 +630,10 @@ function VRSceneContent({ geometry, modelColor, modelName, showGrid, scale }: VR
           <VRModel geometry={geometry} color={modelColor} scale={scale} />
         </Suspense>
       )}
+
+      {/* VR Controllers and Hands */}
+      <Controllers />
+      <Hands />
 
       {/* Controller hints (only show in VR) */}
       {isPresenting && <ControllerHint />}
