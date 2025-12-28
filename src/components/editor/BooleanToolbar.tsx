@@ -21,7 +21,61 @@ import {
 } from "@/components/ui/tooltip"
 import { Combine, Minus, Circle, AlertCircle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { BooleanOperation } from "@/lib/types/editor"
+import { compileJSCAD } from "@/lib/jscad/compiler"
+import type { BooleanOperation, SceneObject } from "@/lib/types/editor"
+
+// Generate combined JSCAD code for boolean operation
+function generateBooleanCode(
+  obj1: SceneObject,
+  obj2: SceneObject,
+  operation: BooleanOperation
+): string {
+  // Helper to wrap object code with its transform applied
+  const wrapWithTransform = (obj: SceneObject, varName: string) => {
+    const { position, rotation, scale } = obj.transform
+
+    // Extract the main function body from the JSCAD code
+    const mainMatch = obj.jscadCode.match(/function\s+main\s*\([^)]*\)\s*\{([\s\S]*)\}/)
+    if (!mainMatch) {
+      throw new Error(`Could not extract main function from ${obj.name}`)
+    }
+
+    const functionBody = mainMatch[1]
+
+    // Build code that executes the function and captures the result
+    let code = `
+  // ${obj.name}
+  var ${varName} = (function(params) {${functionBody}})(${JSON.stringify(obj.parameters)});
+`
+
+    // Apply transforms in order: scale, then rotate, then translate
+    if (scale[0] !== 1 || scale[1] !== 1 || scale[2] !== 1) {
+      code += `  ${varName} = scale([${scale.join(", ")}], ${varName});\n`
+    }
+    if (rotation[0] !== 0 || rotation[1] !== 0 || rotation[2] !== 0) {
+      const radX = (rotation[0] * Math.PI / 180).toFixed(6)
+      const radY = (rotation[1] * Math.PI / 180).toFixed(6)
+      const radZ = (rotation[2] * Math.PI / 180).toFixed(6)
+      if (rotation[0] !== 0) code += `  ${varName} = rotateX(${radX}, ${varName});\n`
+      if (rotation[1] !== 0) code += `  ${varName} = rotateY(${radY}, ${varName});\n`
+      if (rotation[2] !== 0) code += `  ${varName} = rotateZ(${radZ}, ${varName});\n`
+    }
+    if (position[0] !== 0 || position[1] !== 0 || position[2] !== 0) {
+      code += `  ${varName} = translate([${position.join(", ")}], ${varName});\n`
+    }
+
+    return code
+  }
+
+  const obj1Code = wrapWithTransform(obj1, "shape1")
+  const obj2Code = wrapWithTransform(obj2, "shape2")
+
+  return `function main(params) {
+${obj1Code}
+${obj2Code}
+  return ${operation}(shape1, shape2);
+}`
+}
 
 interface BooleanOperationDialogProps {
   open: boolean
@@ -30,6 +84,7 @@ interface BooleanOperationDialogProps {
   objectNames: string[]
   onConfirm: (keepOriginals: boolean) => void
   isProcessing: boolean
+  error: string | null
 }
 
 function BooleanOperationDialog({
@@ -39,6 +94,7 @@ function BooleanOperationDialog({
   objectNames,
   onConfirm,
   isProcessing,
+  error,
 }: BooleanOperationDialogProps) {
   const [keepOriginals, setKeepOriginals] = useState(false)
 
@@ -95,6 +151,14 @@ function BooleanOperationDialog({
             </div>
           )}
 
+          {/* Error Message */}
+          {error && (
+            <div className="flex items-start gap-2 text-xs text-red-400 bg-red-500/10 p-3 rounded">
+              <AlertCircle className="w-4 h-4 mt-0.5" />
+              <p>{error}</p>
+            </div>
+          )}
+
           {/* Keep Originals Option */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
@@ -142,6 +206,7 @@ export default function BooleanToolbar() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [currentOperation, setCurrentOperation] = useState<BooleanOperation>("union")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const selectedObjects = useSelectedObjects()
   const addObject = useEditorStore((state) => state.addObject)
@@ -150,11 +215,14 @@ export default function BooleanToolbar() {
   const deselectAll = useEditorStore((state) => state.deselectAll)
   const selectObject = useEditorStore((state) => state.selectObject)
 
-  const canPerformBoolean = selectedObjects.length === 2
+  // Can only perform boolean if exactly 2 objects selected and both have JSCAD code
+  const canPerformBoolean = selectedObjects.length === 2 &&
+    selectedObjects.every((obj) => obj.jscadCode && obj.geometry)
 
   const handleOperationClick = (operation: BooleanOperation) => {
     if (!canPerformBoolean) return
     setCurrentOperation(operation)
+    setError(null)
     setDialogOpen(true)
   }
 
@@ -162,21 +230,25 @@ export default function BooleanToolbar() {
     if (selectedObjects.length !== 2) return
 
     setIsProcessing(true)
+    setError(null)
 
     try {
-      // In a real implementation, this would call the JSCAD worker to perform the boolean operation
-      // For now, we'll create a placeholder result
-
       const [obj1, obj2] = selectedObjects
       const operationName = currentOperation.charAt(0).toUpperCase() + currentOperation.slice(1)
 
-      // Create the result object
+      // Generate combined JSCAD code that performs the boolean operation
+      const combinedCode = generateBooleanCode(obj1, obj2, currentOperation)
+
+      // Compile the combined geometry using the JSCAD worker
+      const resultGeometry = await compileJSCAD(combinedCode, {})
+
+      // Create the result object with the computed geometry
       const resultId = addObject({
         name: `${operationName}: ${obj1.name} + ${obj2.name}`,
         type: "boolean-result",
-        jscadCode: `// Boolean ${currentOperation} of ${obj1.name} and ${obj2.name}`,
+        jscadCode: combinedCode,
         parameters: {},
-        geometry: obj1.geometry, // Placeholder - would be computed result
+        geometry: resultGeometry,
         transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
         visible: true,
         locked: false,
@@ -200,8 +272,9 @@ export default function BooleanToolbar() {
       selectObject(resultId)
 
       setDialogOpen(false)
-    } catch (error) {
-      console.error("Boolean operation failed:", error)
+    } catch (err) {
+      console.error("Boolean operation failed:", err)
+      setError(err instanceof Error ? err.message : "Boolean operation failed")
     } finally {
       setIsProcessing(false)
     }
@@ -299,6 +372,7 @@ export default function BooleanToolbar() {
         objectNames={selectedObjects.map((obj) => obj.name)}
         onConfirm={handleConfirm}
         isProcessing={isProcessing}
+        error={error}
       />
     </>
   )

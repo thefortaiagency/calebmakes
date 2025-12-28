@@ -123,57 +123,22 @@ export default function PrintAnalysisDashboard() {
   const runAnalysis = async () => {
     if (selectedObjects.length === 0) return
 
+    const geometry = selectedObjects[0].geometry
+    if (!geometry) return
+
     setIsAnalyzing(true)
 
     try {
-      // Simulate analysis - in a real implementation this would call a worker
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Import the analysis utilities dynamically to avoid SSR issues
+      const { analyzeGeometry } = await import("@/lib/analysis/geometry-analysis")
 
-      // Generate mock analysis results based on geometry
-      const mockAnalysis: PrintAnalysis = {
-        wallThickness: {
-          min: 1.5,
-          max: 4.2,
-          average: 2.8,
-          problemAreas: [
-            { position: [10, 20, 5], thickness: 0.8 },
-          ],
-        },
-        overhangs: {
-          maxAngle: 52,
-          areas: [
-            { position: [15, 30, 40], angle: 52, normal: [0.6, -0.8, 0] },
-          ],
-        },
-        metrics: {
-          volume: 12500, // mm^3
-          surfaceArea: 4800, // mm^2
-          boundingBox: {
-            width: 45,
-            depth: 35,
-            height: 28,
-          },
-        },
-        estimates: {
-          weight: (12500 / 1000) * selectedMaterial.density, // grams
-          printTime: Math.round(12500 / (selectedMaterial.printSpeed * 60)), // minutes
-          materialCost: ((12500 / 1000) * selectedMaterial.density) * selectedMaterial.costPerGram,
-        },
-        printability: {
-          score: 78,
-          issues: [
-            "Some areas have thin walls (< 1.2mm)",
-            "Overhang detected at 52° (supports recommended for > 45°)",
-          ],
-          suggestions: [
-            "Increase wall thickness in highlighted areas",
-            "Consider adding supports or reorienting the model",
-            "This model is well-suited for PLA material",
-          ],
-        },
-      }
+      // Run real analysis on the geometry
+      const analysis = analyzeGeometry(geometry, {
+        ...selectedMaterial,
+        name: preferences.material,
+      })
 
-      setPrintAnalysis(mockAnalysis)
+      setPrintAnalysis(analysis)
     } catch (error) {
       console.error("Analysis failed:", error)
     } finally {

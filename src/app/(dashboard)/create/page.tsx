@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, Layers } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelRightClose, PanelRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +14,8 @@ import ParameterControls from "@/components/editor/ParameterControls"
 import HelpDialog from "@/components/editor/HelpDialog"
 import ObjectTree from "@/components/editor/ObjectTree"
 import TransformToolbar from "@/components/editor/TransformToolbar"
+import BooleanToolbar from "@/components/editor/BooleanToolbar"
+import PrintAnalysisDashboard from "@/components/analysis/PrintAnalysisDashboard"
 import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
 import type { User } from "@supabase/supabase-js"
@@ -67,6 +69,7 @@ export default function CreatePage() {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [showIdeas, setShowIdeas] = useState(false)
   const [mobileShowViewer, setMobileShowViewer] = useState(false)
+  const [showAnalysis, setShowAnalysis] = useState(false)
   const supabase = createClient()
 
   // Get user on mount
@@ -446,6 +449,15 @@ export default function CreatePage() {
               <Download className="w-4 h-4 lg:mr-2" />
               <span className="hidden lg:inline">Download STL</span>
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowAnalysis(!showAnalysis)}
+              className={showAnalysis ? "bg-cyan-600/80 hover:bg-cyan-500/80 backdrop-blur-sm" : "bg-gray-800/80 backdrop-blur-sm"}
+            >
+              {showAnalysis ? <PanelRightClose className="w-4 h-4 lg:mr-2" /> : <BarChart3 className="w-4 h-4 lg:mr-2" />}
+              <span className="hidden lg:inline">{showAnalysis ? "Hide Analysis" : "Analyze"}</span>
+            </Button>
           </div>
 
           {/* Compiling Indicator */}
@@ -462,12 +474,20 @@ export default function CreatePage() {
 
             {/* Transform Toolbar - shows when objects exist */}
             {editorObjects.length > 0 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
                 <TransformToolbar />
+                <BooleanToolbar />
               </div>
             )}
           </div>
         </div>
+
+        {/* Right Panel - Print Analysis */}
+        {showAnalysis && (
+          <div className="w-80 border-l border-gray-800 bg-gray-900/50 hidden lg:block">
+            <PrintAnalysisDashboard />
+          </div>
+        )}
       </div>
     </div>
   )

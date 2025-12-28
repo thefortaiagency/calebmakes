@@ -37,6 +37,10 @@ import {
   Trash2,
   Ruler,
   Triangle,
+  Combine,
+  Minus,
+  Circle,
+  BarChart3,
 } from "lucide-react"
 
 interface HelpSectionProps {
@@ -333,6 +337,52 @@ export default function HelpDialog() {
                   <p className="mt-2">
                     Angle is shown in degrees. Click the label to delete the measurement.
                   </p>
+                </HelpSection>
+
+                <div className="border-t border-gray-800 pt-6">
+                  <h4 className="text-xs uppercase tracking-wider text-gray-500 mb-4">
+                    Boolean Operations
+                  </h4>
+                </div>
+
+                <HelpSection icon={<Combine className="w-4 h-4" />} title="Union (Combine)">
+                  <p>
+                    Select <strong>two objects</strong>, then click <strong>Union</strong> to
+                    merge them into a single shape.
+                  </p>
+                </HelpSection>
+
+                <HelpSection icon={<Minus className="w-4 h-4" />} title="Subtract">
+                  <p>
+                    Select <strong>two objects</strong>, then click <strong>Subtract</strong> to
+                    remove the second object from the first. Great for cutting holes!
+                  </p>
+                </HelpSection>
+
+                <HelpSection icon={<Circle className="w-4 h-4" />} title="Intersect">
+                  <p>
+                    Select <strong>two objects</strong>, then click <strong>Intersect</strong> to
+                    keep only the overlapping part.
+                  </p>
+                </HelpSection>
+
+                <div className="border-t border-gray-800 pt-6">
+                  <h4 className="text-xs uppercase tracking-wider text-gray-500 mb-4">
+                    Print Analysis
+                  </h4>
+                </div>
+
+                <HelpSection icon={<BarChart3 className="w-4 h-4" />} title="Analyze Print">
+                  <p>
+                    Click <strong>Analyze</strong> to open the print analysis panel. Get:
+                  </p>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    <li>Estimated weight, print time, and cost</li>
+                    <li>Wall thickness analysis</li>
+                    <li>Overhang detection</li>
+                    <li>Printability score (0-100)</li>
+                    <li>Suggestions for better prints</li>
+                  </ul>
                 </HelpSection>
               </div>
             </ScrollArea>

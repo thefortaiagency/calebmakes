@@ -2,7 +2,7 @@
 
 This document tracks the work needed to enable the advanced CAD features that were stubbed out.
 
-## Current Status: Phases 1-4 Complete! 🎉
+## Current Status: Phases 1-6 Complete! 🎉
 
 **Completed Features:**
 - ✅ Multi-object scene support (generate multiple models, add them to scene)
@@ -18,6 +18,17 @@ This document tracks the work needed to enable the advanced CAD features that we
   - Click two points on model to measure distance (mm)
   - Click three points to measure angle (degrees)
   - Measurements shown as floating labels, click to delete
+- ✅ **Boolean Operations** - Union, Subtract, Intersect
+  - Select 2 objects to combine them
+  - Real JSCAD boolean operations with transforms applied
+  - Option to keep or remove original objects
+- ✅ **Print Analysis Dashboard**
+  - Real geometry analysis (volume, surface area, bounding box)
+  - Wall thickness estimation
+  - Overhang detection (faces > 45°)
+  - Weight, print time, and cost estimates
+  - Material selection (PLA, PETG, ABS, TPU)
+  - Printability score (0-100) with issues and suggestions
 
 ## Overview
 
@@ -140,17 +151,17 @@ const handleClick = (event) => {
 
 ---
 
-## Phase 5: Boolean Operations
+## Phase 5: Boolean Operations ✅ COMPLETE
 **Priority: MEDIUM** - Advanced modeling
 
 ### Tasks
-- [ ] **5.1** Research JSCAD boolean operation API
-- [ ] **5.2** Update JSCAD worker to accept multiple geometries
-- [ ] **5.3** Implement `performBooleanOperation(geom1, geom2, operation)` in worker
-- [ ] **5.4** Update BooleanToolbar to call worker instead of mocking
-- [ ] **5.5** Handle the result geometry and add as new SceneObject
-- [ ] **5.6** Add preview mode (show result before confirming)
-- [ ] **5.7** Add BooleanToolbar back to UI
+- [x] **5.1** Research JSCAD boolean operation API
+- [x] **5.2** Update JSCAD worker to accept multiple geometries
+- [x] **5.3** Implement `performBooleanOperation(geom1, geom2, operation)` in worker
+- [x] **5.4** Update BooleanToolbar to call worker instead of mocking
+- [x] **5.5** Handle the result geometry and add as new SceneObject
+- [x] **5.6** Add preview mode (show result before confirming via dialog)
+- [x] **5.7** Add BooleanToolbar to UI (alongside TransformToolbar)
 
 ### Technical Notes
 ```typescript
@@ -171,20 +182,20 @@ function performBoolean(geom1, geom2, operation) {
 
 ---
 
-## Phase 6: Print Analysis
+## Phase 6: Print Analysis ✅ COMPLETE
 **Priority: LOW** - Nice to have
 
 ### Tasks
-- [ ] **6.1** Research mesh analysis algorithms (wall thickness, overhangs)
-- [ ] **6.2** Create analysis web worker for performance
-- [ ] **6.3** Implement bounding box calculation from actual geometry
-- [ ] **6.4** Implement volume calculation from mesh
-- [ ] **6.5** Implement surface area calculation
-- [ ] **6.6** Implement basic wall thickness detection (ray casting approach)
-- [ ] **6.7** Implement overhang detection (face normal analysis)
-- [ ] **6.8** Calculate weight/cost/time estimates from volume + material
-- [ ] **6.9** Add PrintAnalysisDashboard back to UI
-- [ ] **6.10** Visualize problem areas on the model (color overlay)
+- [x] **6.1** Research mesh analysis algorithms (wall thickness, overhangs)
+- [x] **6.2** Create analysis utilities in src/lib/analysis/geometry-analysis.ts
+- [x] **6.3** Implement bounding box calculation from actual geometry
+- [x] **6.4** Implement volume calculation from mesh (signed tetrahedron method)
+- [x] **6.5** Implement surface area calculation
+- [x] **6.6** Implement wall thickness estimation
+- [x] **6.7** Implement overhang detection (face normal analysis > 45°)
+- [x] **6.8** Calculate weight/cost/time estimates from volume + material
+- [x] **6.9** Add PrintAnalysisDashboard to UI (toggle panel)
+- [ ] **6.10** Visualize problem areas on the model (color overlay) - FUTURE
 
 ### Technical Notes
 ```typescript
