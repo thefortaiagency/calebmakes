@@ -13,50 +13,39 @@ function getWorker(): Worker {
 
 /**
  * Pre-process JSCAD code to fix common roundRadius errors
- * Injects a safeRadius helper and wraps roundRadius values
+ * Adds a global safeRadius helper that limits roundRadius to safe values
  */
 function preprocessCode(code: string): string {
-  // Add safeRadius helper function at the start of main function
+  // Check if code already has safeRadius helper (to avoid duplicate injection)
+  if (code.includes('__safeRadius')) {
+    return code
+  }
+
+  // Add safeRadius helper function BEFORE the main function
   const safeRadiusHelper = `
-  // Auto-injected safe radius helper
-  const __safeRadius = (size, requestedRadius) => {
-    const minDim = Math.min(...(Array.isArray(size) ? size : [size]));
-    const maxAllowed = minDim * 0.45; // 45% of smallest dimension
-    return Math.min(Math.max(0.5, requestedRadius), maxAllowed);
-  };
-`;
+// Safe radius helper to prevent geometry errors
+function __safeRadius(size, requestedRadius) {
+  var minDim = Math.min.apply(null, Array.isArray(size) ? size : [size]);
+  var maxAllowed = minDim * 0.45;
+  return Math.min(Math.max(0.5, requestedRadius), maxAllowed);
+}
 
-  // Inject helper after 'function main' opening brace
+`
+
+  // Find roundedCuboid calls and wrap their roundRadius with __safeRadius
   let processedCode = code.replace(
-    /(function\s+main\s*\([^)]*\)\s*\{)/,
-    `$1${safeRadiusHelper}`
-  )
-
-  // Fix roundedCuboid calls with hardcoded roundRadius values
-  // Match: roundedCuboid({ size: [...], roundRadius: X })
-  processedCode = processedCode.replace(
-    /roundedCuboid\s*\(\s*\{\s*size\s*:\s*(\[[^\]]+\])\s*,\s*roundRadius\s*:\s*([^}]+?)\s*\}/g,
-    (match, size, radius) => {
-      // Check if radius is already using safeRadius or __safeRadius
-      if (radius.includes('safeRadius') || radius.includes('__safeRadius')) {
+    /roundedCuboid\s*\(\s*\{([^}]*size\s*:\s*(\[[^\]]+\])[^}]*roundRadius\s*:\s*)(\d+(?:\.\d+)?|[a-zA-Z_][a-zA-Z0-9_]*)(\s*[^}]*)\}/g,
+    (match, before, size, radius, after) => {
+      // Check if already wrapped
+      if (match.includes('__safeRadius')) {
         return match
       }
-      return `roundedCuboid({ size: ${size}, roundRadius: __safeRadius(${size}, ${radius.trim()}) })`
+      return `roundedCuboid({${before}__safeRadius(${size}, ${radius})${after}})`
     }
   )
 
-  // Also handle the reverse order: roundRadius before size
-  processedCode = processedCode.replace(
-    /roundedCuboid\s*\(\s*\{\s*roundRadius\s*:\s*([^,]+?)\s*,\s*size\s*:\s*(\[[^\]]+\])\s*\}/g,
-    (match, radius, size) => {
-      if (radius.includes('safeRadius') || radius.includes('__safeRadius')) {
-        return match
-      }
-      return `roundedCuboid({ size: ${size}, roundRadius: __safeRadius(${size}, ${radius.trim()}) })`
-    }
-  )
-
-  return processedCode
+  // Prepend the helper
+  return safeRadiusHelper + processedCode
 }
 
 export async function compileJSCAD(
