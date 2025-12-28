@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelRightClose, PanelRight } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -71,6 +71,7 @@ export default function CreatePage() {
   const [showIdeas, setShowIdeas] = useState(false)
   const [mobileShowViewer, setMobileShowViewer] = useState(false)
   const [showAnalysis, setShowAnalysis] = useState(false)
+  const [showLeftPanel, setShowLeftPanel] = useState(true)
   const supabase = createClient()
 
   // Get user on mount
@@ -107,14 +108,22 @@ export default function CreatePage() {
 
   // Add generated model to scene as an editable object
   const handleAddToScene = useCallback(() => {
-    if (!geometry || !response || !code) return
+    if (!geometry || !code) return
 
-    const name = response.description?.split(" ").slice(0, 4).join(" ") || "Generated Model"
+    // Generate a name from response description, or extract from code, or use default
+    let name = "Generated Model"
+    if (response?.description) {
+      name = response.description.split(" ").slice(0, 4).join(" ")
+    } else if (parameters.length > 0) {
+      // Try to create a name from the first parameter or just use "Custom Model"
+      name = `Custom Model ${editorObjects.length + 1}`
+    }
+
     importGeometryAsObject(name, geometry, code, parameterValues, parameters, modelColor)
 
     // Clear the legacy geometry so it doesn't show duplicated
     setGeometry(null)
-  }, [geometry, response, code, parameterValues, parameters, modelColor, importGeometryAsObject, setGeometry])
+  }, [geometry, response, code, parameterValues, parameters, modelColor, importGeometryAsObject, setGeometry, editorObjects.length])
 
   // Compile code when it changes or parameters change
   const compileModel = useCallback(async () => {
@@ -284,13 +293,33 @@ export default function CreatePage() {
       </div>
 
       <div className="flex flex-1 min-h-0">
+        {/* Left Panel Toggle (when collapsed) */}
+        {!showLeftPanel && (
+          <button
+            onClick={() => setShowLeftPanel(true)}
+            className="hidden lg:flex items-center justify-center w-10 border-r border-gray-800 bg-gray-900/50 hover:bg-gray-800 transition-colors"
+            title="Show panel"
+          >
+            <PanelLeft className="w-4 h-4 text-gray-400" />
+          </button>
+        )}
+
         {/* Left Panel - Input & Controls */}
-        <div className={`w-80 border-r border-gray-800 flex flex-col bg-gray-900/50 ${mobileShowViewer ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`w-80 border-r border-gray-800 flex flex-col bg-gray-900/50 ${mobileShowViewer ? 'hidden lg:flex' : 'flex'} ${!showLeftPanel ? 'hidden' : ''}`}>
           {/* AI Generation Section */}
           <div className="p-4 border-b border-gray-800">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-semibold text-gray-300">Describe Your Model</h3>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-sm font-semibold text-gray-300">Describe Your Model</h3>
+              </div>
+              <button
+                onClick={() => setShowLeftPanel(false)}
+                className="hidden lg:flex p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
+                title="Collapse panel"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
             </div>
             <Textarea
               placeholder="e.g., Phone stand with a slot for the charging cable..."
@@ -490,8 +519,23 @@ export default function CreatePage() {
 
         {/* Right Panel - Print Analysis */}
         {showAnalysis && (
-          <div className="w-80 border-l border-gray-800 bg-gray-900/50 hidden lg:block">
-            <PrintAnalysisDashboard />
+          <div className="w-80 border-l border-gray-800 bg-gray-900/50 hidden lg:flex lg:flex-col">
+            <div className="flex items-center justify-between p-3 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-sm font-semibold text-gray-300">Print Analysis</h3>
+              </div>
+              <button
+                onClick={() => setShowAnalysis(false)}
+                className="p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
+                title="Close analysis panel"
+              >
+                <PanelRightClose className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <PrintAnalysisDashboard />
+            </div>
           </div>
         )}
       </div>
