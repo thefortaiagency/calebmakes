@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
-import { Library, Search, Filter, Sparkles, ArrowUpDown, LayoutGrid, List, Gauge, Loader2, Camera } from "lucide-react"
+import { Library, Search, Filter, Sparkles, ArrowUpDown, LayoutGrid, List, Gauge, Loader2, Camera, Heart, Clock } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/select"
 import { TEMPLATES, CATEGORIES, type Template } from "@/lib/templates"
 import { useModelStore } from "@/lib/store"
+import { useFavorites } from "@/lib/hooks/useFavorites"
+import { useRecentTemplates } from "@/lib/hooks/useRecentTemplates"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import { createClient } from "@/lib/supabase/client"
 import type { GeometryData } from "@/lib/types"
@@ -50,12 +52,15 @@ export default function LibraryPage() {
   const [difficulty, setDifficulty] = useState<DifficultyFilter>("all")
   const [sortBy, setSortBy] = useState<SortOption>("name")
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
   const [capturingTemplate, setCapturingTemplate] = useState<Template | null>(null)
   const [captureGeometry, setCaptureGeometry] = useState<GeometryData | null>(null)
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({})
   const router = useRouter()
   const supabase = createClient()
+  const { isFavorite, toggleFavorite, favoritesCount } = useFavorites()
+  const { recentTemplateIds, addRecentTemplate, isLoaded: recentLoaded } = useRecentTemplates()
 
   const {
     setCode,
@@ -101,7 +106,8 @@ export default function LibraryPage() {
       const matchesDifficulty = difficulty === "all" ||
         template.difficulty === difficulty ||
         (difficulty === "hard" && template.difficulty === "advanced")
-      return matchesSearch && matchesCategory && matchesDifficulty
+      const matchesFavorites = !showFavoritesOnly || isFavorite(template.id)
+      return matchesSearch && matchesCategory && matchesDifficulty && matchesFavorites
     })
 
     // Sort templates
@@ -122,7 +128,15 @@ export default function LibraryPage() {
     })
 
     return templates
-  }, [search, category, difficulty, sortBy])
+  }, [search, category, difficulty, sortBy, showFavoritesOnly, isFavorite])
+
+  // Get recent templates as full Template objects
+  const recentTemplates = useMemo(() => {
+    if (!recentLoaded) return []
+    return recentTemplateIds
+      .map((id) => TEMPLATES.find((t) => t.id === id))
+      .filter((t): t is Template => t !== undefined)
+  }, [recentTemplateIds, recentLoaded])
 
   const handleCustomize = async (templateId: string) => {
     const template = TEMPLATES.find((t) => t.id === templateId)
@@ -132,6 +146,9 @@ export default function LibraryPage() {
     setError(null)
 
     try {
+      // Track this template as recently used
+      addRecentTemplate(templateId)
+
       // Set the code, name, and parameters in the store
       setCode(template.code)
       setModelName(template.name)
@@ -145,8 +162,8 @@ export default function LibraryPage() {
       const geom = await compileJSCAD(template.code, defaultParams)
       setGeometry(geom)
 
-      // Navigate to create page
-      router.push("/create")
+      // Navigate to create page with template ID for shareable link support
+      router.push(`/create?template=${templateId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load template")
     } finally {
@@ -243,6 +260,22 @@ export default function LibraryPage() {
               className="pl-9 bg-gray-800 border-gray-700"
             />
           </div>
+          {/* Favorites toggle */}
+          <button
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            className={`p-2 rounded-md border transition-colors flex items-center gap-1.5 ${
+              showFavoritesOnly
+                ? "bg-pink-500/20 border-pink-500/50 text-pink-400"
+                : "bg-gray-800 border-gray-700 text-gray-400 hover:text-pink-400 hover:border-pink-500/30"
+            }`}
+            title={showFavoritesOnly ? "Show all templates" : "Show favorites only"}
+          >
+            <Heart className={`w-4 h-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
+            {favoritesCount > 0 && (
+              <span className="text-xs font-medium">{favoritesCount}</span>
+            )}
+          </button>
+
           {/* View toggle */}
           <div className="flex items-center bg-gray-800 border border-gray-700 rounded-md overflow-hidden">
             <button
@@ -315,6 +348,31 @@ export default function LibraryPage() {
 
       {/* Templates */}
       <div className="flex-1 overflow-auto p-4 sm:p-6">
+        {/* Recently Used Section */}
+        {recentTemplates.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="w-4 h-4 text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-300">Recently Used</h2>
+              <span className="text-xs text-gray-500">({recentTemplates.length})</span>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+              {recentTemplates.map((template) => (
+                <RecentTemplateCard
+                  key={`recent-${template.id}`}
+                  template={template}
+                  loading={loading === template.id}
+                  onCustomize={handleCustomize}
+                  thumbnailUrl={thumbnailUrls[template.id]}
+                  isFavorite={isFavorite(template.id)}
+                  onToggleFavorite={toggleFavorite}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Main Template Grid/List */}
         <div>
           {viewMode === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -326,6 +384,8 @@ export default function LibraryPage() {
                   onCustomize={handleCustomize}
                   onCapture={handleCaptureThumbnail}
                   thumbnailUrl={thumbnailUrls[template.id]}
+                  isFavorite={isFavorite(template.id)}
+                  onToggleFavorite={toggleFavorite}
                 />
               ))}
             </div>
@@ -338,6 +398,8 @@ export default function LibraryPage() {
                   loading={loading === template.id}
                   onCustomize={handleCustomize}
                   thumbnailUrl={thumbnailUrls[template.id]}
+                  isFavorite={isFavorite(template.id)}
+                  onToggleFavorite={toggleFavorite}
                 />
               ))}
             </div>
@@ -376,9 +438,11 @@ interface TemplateCardProps {
   onCustomize: (id: string) => void
   onCapture?: (template: Template) => void
   thumbnailUrl?: string
+  isFavorite?: boolean
+  onToggleFavorite?: (id: string) => void
 }
 
-function TemplateCard({ template, loading, onCustomize, onCapture, thumbnailUrl }: TemplateCardProps) {
+function TemplateCard({ template, loading, onCustomize, onCapture, thumbnailUrl, isFavorite, onToggleFavorite }: TemplateCardProps) {
   const [imgSrc, setImgSrc] = useState(thumbnailUrl || `/templates/${template.id}.png`)
   const [imageError, setImageError] = useState(false)
 
@@ -442,6 +506,23 @@ function TemplateCard({ template, loading, onCustomize, onCapture, thumbnailUrl 
               <Camera className="w-4 h-4" />
             </button>
           )}
+          {/* Favorite button */}
+          {onToggleFavorite && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleFavorite(template.id)
+              }}
+              className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-all ${
+                isFavorite
+                  ? "bg-pink-500/20 text-pink-400"
+                  : "bg-gray-900/80 text-gray-400 hover:text-pink-400 hover:bg-gray-800 opacity-0 group-hover:opacity-100"
+              }`}
+              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? "fill-current" : ""}`} />
+            </button>
+          )}
         </div>
 
         {/* Info */}
@@ -498,7 +579,7 @@ function TemplateCard({ template, loading, onCustomize, onCapture, thumbnailUrl 
 }
 
 // Compact list item for list view
-function TemplateListItem({ template, loading, onCustomize, thumbnailUrl }: Omit<TemplateCardProps, "onCapture">) {
+function TemplateListItem({ template, loading, onCustomize, thumbnailUrl, isFavorite, onToggleFavorite }: Omit<TemplateCardProps, "onCapture">) {
   const [imgSrc, setImgSrc] = useState(thumbnailUrl || `/templates/${template.id}.png`)
   const [imageError, setImageError] = useState(false)
 
@@ -553,6 +634,24 @@ function TemplateListItem({ template, loading, onCustomize, thumbnailUrl }: Omit
         </div>
       </div>
 
+      {/* Favorite button */}
+      {onToggleFavorite && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleFavorite(template.id)
+          }}
+          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+            isFavorite
+              ? "bg-pink-500/20 text-pink-400"
+              : "bg-gray-800 text-gray-400 hover:text-pink-400 hover:bg-pink-500/10"
+          }`}
+          title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Heart className={`w-4 h-4 ${isFavorite ? "fill-current" : ""}`} />
+        </button>
+      )}
+
       {/* Action */}
       <Button
         onClick={(e) => {
@@ -573,6 +672,76 @@ function TemplateListItem({ template, loading, onCustomize, thumbnailUrl }: Omit
           </>
         )}
       </Button>
+    </div>
+  )
+}
+
+// Compact card for recently used templates (horizontal scroll)
+function RecentTemplateCard({ template, loading, onCustomize, thumbnailUrl, isFavorite, onToggleFavorite }: Omit<TemplateCardProps, "onCapture">) {
+  const [imgSrc, setImgSrc] = useState(thumbnailUrl || `/templates/${template.id}.png`)
+  const [imageError, setImageError] = useState(false)
+
+  useEffect(() => {
+    if (thumbnailUrl) {
+      setImgSrc(thumbnailUrl)
+      setImageError(false)
+    }
+  }, [thumbnailUrl])
+
+  const handleImageError = () => {
+    if (thumbnailUrl && imgSrc === thumbnailUrl) {
+      setImgSrc(`/templates/${template.id}.png`)
+    } else {
+      setImageError(true)
+    }
+  }
+
+  return (
+    <div
+      className="flex-shrink-0 w-32 sm:w-40 cursor-pointer group"
+      onClick={() => onCustomize(template.id)}
+    >
+      {/* Thumbnail */}
+      <div className="aspect-square rounded-lg overflow-hidden mb-2 relative bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-800 group-hover:border-cyan-500/30 transition-colors">
+        {loading ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+          </div>
+        ) : imageError ? (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500/10 to-purple-500/10">
+            <Library className="w-6 h-6 text-cyan-400" />
+          </div>
+        ) : (
+          <img
+            src={imgSrc}
+            alt={template.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={handleImageError}
+          />
+        )}
+        {/* Favorite button */}
+        {onToggleFavorite && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleFavorite(template.id)
+            }}
+            className={`absolute top-1 right-1 z-10 p-1 rounded-md transition-all ${
+              isFavorite
+                ? "bg-pink-500/20 text-pink-400"
+                : "bg-gray-900/80 text-gray-400 hover:text-pink-400 hover:bg-gray-800 opacity-0 group-hover:opacity-100"
+            }`}
+            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart className={`w-3 h-3 ${isFavorite ? "fill-current" : ""}`} />
+          </button>
+        )}
+      </div>
+      {/* Name */}
+      <h3 className="text-xs sm:text-sm font-medium text-gray-300 group-hover:text-cyan-400 transition-colors truncate">
+        {template.name}
+      </h3>
+      <p className="text-xs text-gray-500 truncate">{template.estimatedPrintTime}</p>
     </div>
   )
 }

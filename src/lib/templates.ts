@@ -4237,6 +4237,1825 @@ export const TEMPLATES: Template[] = [
   return union(...pieces, backPlate);
 }`,
   },
+
+  // ============================================
+  // HOLIDAY TEMPLATES
+  // ============================================
+  {
+    id: "christmas-ornament",
+    name: "Christmas Ball Ornament",
+    description: "Customizable Christmas ball ornament with decorative patterns and hanging hook. Perfect for personalizing your tree.",
+    category: "holiday",
+    difficulty: "medium",
+    estimatedPrintTime: "1h 30m",
+    printTime: "1h 30m",
+    material: "PLA",
+    icon: "🎄",
+    tags: ["christmas", "ornament", "holiday", "decoration", "tree"],
+    dimensions: { width: 60, depth: 60, height: 75 },
+    parameters: [
+      { name: "diameter", type: "number", default: 60, min: 40, max: 100, step: 5, label: "Ball Diameter (mm)" },
+      { name: "wallThickness", type: "number", default: 2, min: 1.5, max: 4, step: 0.5, label: "Wall Thickness (mm)" },
+      { name: "pattern", type: "number", default: 8, min: 4, max: 16, step: 2, label: "Pattern Lines" },
+      { name: "hookSize", type: "number", default: 8, min: 5, max: 15, step: 1, label: "Hook Size (mm)" }
+    ],
+    notes: [
+      "Print in two halves for best results",
+      "Use spiral/vase mode for smooth finish",
+      "Supports needed for hook",
+      "Try metallic or glitter filament"
+    ],
+    code: `function main(params) {
+  const { diameter = 60, wallThickness = 2, pattern = 8, hookSize = 8 } = params;
+  const radius = diameter / 2;
+
+  // Outer sphere
+  const outer = sphere({ radius: radius, segments: 32 });
+
+  // Inner sphere for hollow
+  const inner = sphere({ radius: radius - wallThickness, segments: 32 });
+
+  // Create hollow ball
+  let ball = subtract(outer, inner);
+
+  // Decorative pattern lines (vertical grooves)
+  for (let i = 0; i < pattern; i++) {
+    const angle = (i / pattern) * Math.PI * 2;
+    const groove = translate([0, 0, 0],
+      rotateZ(angle,
+        translate([radius - wallThickness/2, 0, 0],
+          cylinder({ radius: 1, height: diameter * 0.8, segments: 8 })
+        )
+      )
+    );
+    ball = subtract(ball, groove);
+  }
+
+  // Cap at top
+  const cap = translate([0, 0, radius],
+    cylinder({ radius: 8, height: 5, segments: 32 })
+  );
+
+  // Hook
+  const hookBase = translate([0, 0, radius + 5],
+    cylinder({ radius: 4, height: 8, segments: 16 })
+  );
+
+  const hookRing = translate([0, 0, radius + 13],
+    rotateX(degToRad(90),
+      subtract(
+        cylinder({ radius: hookSize, height: 3, segments: 32 }),
+        cylinder({ radius: hookSize - 2, height: 4, segments: 32 })
+      )
+    )
+  );
+
+  ball = translate([0, 0, radius], ball);
+  return union(ball, cap, hookBase, hookRing);
+}`,
+  },
+  {
+    id: "gift-box-with-lid",
+    name: "Gift Box with Bow Lid",
+    description: "Decorative gift box with a lid featuring a 3D printed bow. Great for small presents or jewelry.",
+    category: "holiday",
+    difficulty: "medium",
+    estimatedPrintTime: "2h 30m",
+    printTime: "2h 30m",
+    material: "PLA",
+    icon: "🎁",
+    tags: ["gift", "box", "holiday", "present", "bow", "christmas"],
+    dimensions: { width: 80, depth: 80, height: 60 },
+    parameters: [
+      { name: "boxSize", type: "number", default: 80, min: 50, max: 120, step: 10, label: "Box Size (mm)" },
+      { name: "boxHeight", type: "number", default: 40, min: 25, max: 80, step: 5, label: "Box Height (mm)" },
+      { name: "wallThickness", type: "number", default: 2.5, min: 2, max: 4, step: 0.5, label: "Wall Thickness (mm)" },
+      { name: "bowSize", type: "number", default: 25, min: 15, max: 40, step: 5, label: "Bow Size (mm)" }
+    ],
+    notes: [
+      "Print box and lid separately",
+      "Lid prints upside down",
+      "The bow prints as part of lid",
+      "Use contrasting colors for bow"
+    ],
+    code: `function main(params) {
+  const { boxSize = 80, boxHeight = 40, wallThickness = 2.5, bowSize = 25 } = params;
+
+  // Box body
+  const boxOuter = cuboid({ size: [boxSize, boxSize, boxHeight] });
+  const boxInner = cuboid({ size: [boxSize - wallThickness * 2, boxSize - wallThickness * 2, boxHeight - wallThickness] });
+  let box = subtract(
+    translate([0, 0, boxHeight/2], boxOuter),
+    translate([0, 0, boxHeight/2 + wallThickness], boxInner)
+  );
+
+  // Lid
+  const lidThickness = 3;
+  const lidGap = 0.4;
+  const lid = cuboid({ size: [boxSize + 2, boxSize + 2, lidThickness] });
+
+  // Lid lip that fits inside box
+  const lipHeight = 5;
+  const lipOuter = cuboid({ size: [boxSize - lidGap, boxSize - lidGap, lipHeight] });
+  const lipInner = cuboid({ size: [boxSize - wallThickness * 2 - 2, boxSize - wallThickness * 2 - 2, lipHeight + 1] });
+  const lip = subtract(lipOuter, lipInner);
+
+  // Bow loops
+  const bowLoop1 = translate([bowSize/2, 0, lidThickness + bowSize/3],
+    rotateY(degToRad(30),
+      scale([1, 0.4, 1],
+        sphere({ radius: bowSize/2, segments: 24 })
+      )
+    )
+  );
+  const bowLoop2 = translate([-bowSize/2, 0, lidThickness + bowSize/3],
+    rotateY(degToRad(-30),
+      scale([1, 0.4, 1],
+        sphere({ radius: bowSize/2, segments: 24 })
+      )
+    )
+  );
+
+  // Bow center knot
+  const bowKnot = translate([0, 0, lidThickness + bowSize/4],
+    sphere({ radius: bowSize/3, segments: 16 })
+  );
+
+  // Ribbon strips on lid
+  const ribbon1 = cuboid({ size: [boxSize + 2, bowSize/2, 2] });
+  const ribbon2 = cuboid({ size: [bowSize/2, boxSize + 2, 2] });
+
+  const lidAssembly = union(
+    translate([0, 0, lidThickness/2], lid),
+    translate([0, 0, -lipHeight/2], lip),
+    translate([0, 0, lidThickness], ribbon1),
+    translate([0, 0, lidThickness], ribbon2),
+    bowLoop1, bowLoop2, bowKnot
+  );
+
+  // Position lid next to box for preview
+  const lidFinal = translate([boxSize + 20, 0, lipHeight], lidAssembly);
+
+  return union(box, lidFinal);
+}`,
+  },
+  {
+    id: "snowflake-decoration",
+    name: "Snowflake Ornament",
+    description: "Delicate snowflake decoration with intricate 6-fold symmetry. Hang on tree or in windows.",
+    category: "holiday",
+    difficulty: "easy",
+    estimatedPrintTime: "45m",
+    printTime: "45m",
+    material: "PLA",
+    icon: "❄️",
+    tags: ["snowflake", "winter", "christmas", "decoration", "ornament"],
+    dimensions: { width: 100, depth: 100, height: 3 },
+    parameters: [
+      { name: "size", type: "number", default: 100, min: 60, max: 150, step: 10, label: "Size (mm)" },
+      { name: "thickness", type: "number", default: 3, min: 2, max: 5, step: 0.5, label: "Thickness (mm)" },
+      { name: "armWidth", type: "number", default: 5, min: 3, max: 8, step: 1, label: "Arm Width (mm)" },
+      { name: "detail", type: "number", default: 3, min: 1, max: 5, step: 1, label: "Detail Level" }
+    ],
+    notes: [
+      "Print flat on bed",
+      "No supports needed",
+      "Use white or light blue filament",
+      "Add hanging loop with thread"
+    ],
+    code: `function main(params) {
+  const { size = 100, thickness = 3, armWidth = 5, detail = 3 } = params;
+  const radius = size / 2;
+
+  let snowflake = [];
+
+  // Create 6 main arms
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+
+    // Main arm
+    const arm = cuboid({ size: [radius * 0.9, armWidth, thickness] });
+    const rotatedArm = translate([radius * 0.45, 0, thickness/2],
+      rotateZ(angle, translate([0, 0, 0], arm))
+    );
+
+    snowflake.push(rotateZ(angle, translate([radius * 0.45, 0, thickness/2], arm)));
+
+    // Side branches based on detail level
+    for (let j = 1; j <= detail; j++) {
+      const branchPos = (j / (detail + 1)) * radius * 0.8;
+      const branchLen = radius * 0.3 * (1 - j/(detail + 2));
+
+      // Left branch
+      const branchL = cuboid({ size: [branchLen, armWidth * 0.7, thickness] });
+      snowflake.push(
+        rotateZ(angle,
+          translate([branchPos, 0, thickness/2],
+            rotateZ(degToRad(45),
+              translate([branchLen/2, 0, 0], branchL)
+            )
+          )
+        )
+      );
+
+      // Right branch
+      snowflake.push(
+        rotateZ(angle,
+          translate([branchPos, 0, thickness/2],
+            rotateZ(degToRad(-45),
+              translate([branchLen/2, 0, 0], branchL)
+            )
+          )
+        )
+      );
+    }
+  }
+
+  // Center hub
+  const center = cylinder({ radius: armWidth * 1.5, height: thickness, segments: 6 });
+  snowflake.push(translate([0, 0, thickness/2], center));
+
+  // Hanging hole
+  const holePos = radius * 0.85;
+  const hole = cylinder({ radius: 2, height: thickness + 2, segments: 16 });
+  const holeRing = cylinder({ radius: 4, height: thickness, segments: 16 });
+
+  let result = union(...snowflake);
+  result = union(result, translate([holePos, 0, thickness/2], holeRing));
+  result = subtract(result, translate([holePos, 0, thickness/2], hole));
+
+  return result;
+}`,
+  },
+  {
+    id: "pumpkin-decoration",
+    name: "Halloween Pumpkin",
+    description: "Decorative pumpkin with carved face and stem. Perfect for Halloween decoration.",
+    category: "holiday",
+    difficulty: "medium",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PLA",
+    icon: "🎃",
+    tags: ["halloween", "pumpkin", "jack-o-lantern", "decoration", "fall"],
+    dimensions: { width: 80, depth: 80, height: 85 },
+    parameters: [
+      { name: "diameter", type: "number", default: 80, min: 50, max: 120, step: 10, label: "Pumpkin Size (mm)" },
+      { name: "segments", type: "number", default: 8, min: 6, max: 12, step: 1, label: "Pumpkin Segments" },
+      { name: "faceSize", type: "number", default: 1, min: 0.5, max: 1.5, step: 0.1, label: "Face Scale" },
+      { name: "hollow", type: "boolean", default: true, label: "Hollow (for LED)" }
+    ],
+    notes: [
+      "Print with supports for face cutouts",
+      "Use orange filament",
+      "Green filament for stem recommended",
+      "Place LED inside for glow effect"
+    ],
+    code: `function main(params) {
+  const { diameter = 80, segments = 8, faceSize = 1, hollow = true } = params;
+  const radius = diameter / 2;
+
+  // Main pumpkin body - squashed sphere
+  let pumpkin = scale([1, 1, 0.8],
+    sphere({ radius: radius, segments: 32 })
+  );
+
+  // Add pumpkin ridges by subtracting grooves
+  for (let i = 0; i < segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    const groove = translate([0, 0, 0],
+      rotateZ(angle,
+        translate([radius * 0.95, 0, 0],
+          scale([0.15, 1, 0.85],
+            sphere({ radius: radius * 0.3, segments: 16 })
+          )
+        )
+      )
+    );
+    pumpkin = subtract(pumpkin, groove);
+  }
+
+  // Hollow inside if requested
+  if (hollow) {
+    const cavity = scale([1, 1, 0.8],
+      sphere({ radius: radius - 4, segments: 32 })
+    );
+    pumpkin = subtract(pumpkin, translate([0, 0, 5], cavity));
+
+    // Bottom opening for LED
+    const bottomHole = cylinder({ radius: radius * 0.4, height: 20, segments: 32 });
+    pumpkin = subtract(pumpkin, translate([0, 0, -radius * 0.6], bottomHole));
+  }
+
+  // Face features - eyes (triangles approximated with cylinders)
+  const eyeSize = 12 * faceSize;
+  const eyeHeight = radius * 0.15;
+  const leftEye = translate([-radius * 0.25, radius * 0.7, eyeHeight],
+    rotateX(degToRad(75),
+      cylinder({ radius: eyeSize, height: 15, segments: 3 })
+    )
+  );
+  const rightEye = translate([radius * 0.25, radius * 0.7, eyeHeight],
+    rotateX(degToRad(75),
+      cylinder({ radius: eyeSize, height: 15, segments: 3 })
+    )
+  );
+
+  // Nose (triangle)
+  const nose = translate([0, radius * 0.65, -radius * 0.05],
+    rotateX(degToRad(75),
+      cylinder({ radius: 8 * faceSize, height: 15, segments: 3 })
+    )
+  );
+
+  // Mouth (curved smile made of overlapping cylinders)
+  let mouth = cuboid({ size: [radius * 0.8 * faceSize, 15, 15 * faceSize] });
+  mouth = translate([0, radius * 0.65, -radius * 0.35], rotateX(degToRad(75), mouth));
+
+  pumpkin = subtract(pumpkin, leftEye, rightEye, nose, mouth);
+
+  // Stem
+  const stem = translate([0, 0, radius * 0.75],
+    cylinder({ radius: 8, height: 20, segments: 8 })
+  );
+  const stemTop = translate([0, 0, radius * 0.75 + 18],
+    sphere({ radius: 6, segments: 16 })
+  );
+
+  pumpkin = translate([0, 0, radius * 0.8], pumpkin);
+  return union(pumpkin, stem, stemTop);
+}`,
+  },
+  {
+    id: "easter-egg-holder",
+    name: "Easter Egg Display Stand",
+    description: "Decorative stand to display Easter eggs with bunny ear accents.",
+    category: "holiday",
+    difficulty: "easy",
+    estimatedPrintTime: "1h",
+    printTime: "1h",
+    material: "PLA",
+    icon: "🐰",
+    tags: ["easter", "egg", "spring", "bunny", "decoration", "holder"],
+    dimensions: { width: 60, depth: 60, height: 80 },
+    parameters: [
+      { name: "eggDiameter", type: "number", default: 45, min: 30, max: 60, step: 5, label: "Egg Diameter (mm)" },
+      { name: "baseStyle", type: "number", default: 1, min: 1, max: 3, step: 1, label: "Base Style (1-3)" },
+      { name: "bunnyEars", type: "boolean", default: true, label: "Add Bunny Ears" },
+      { name: "grassRing", type: "boolean", default: true, label: "Grass Decoration" }
+    ],
+    notes: [
+      "Print without supports",
+      "Fits standard chicken eggs",
+      "Pastel colors recommended",
+      "Print ears separately if using different color"
+    ],
+    code: `function main(params) {
+  const { eggDiameter = 45, baseStyle = 1, bunnyEars = true, grassRing = true } = params;
+  const eggRadius = eggDiameter / 2;
+
+  // Base platform
+  const baseRadius = eggRadius + 15;
+  const baseHeight = 8;
+  let base;
+
+  if (baseStyle === 1) {
+    // Circular base
+    base = cylinder({ radius: baseRadius, height: baseHeight, segments: 32 });
+  } else if (baseStyle === 2) {
+    // Flower-shaped base
+    base = cylinder({ radius: baseRadius, height: baseHeight, segments: 8 });
+  } else {
+    // Square base
+    base = cuboid({ size: [baseRadius * 2, baseRadius * 2, baseHeight] });
+  }
+  base = translate([0, 0, baseHeight/2], base);
+
+  // Egg cup/ring
+  const cupOuter = cylinder({ radius: eggRadius + 3, height: 15, segments: 32 });
+  const cupInner = cylinder({ radius: eggRadius, height: 16, segments: 32 });
+  const cupBase = cylinder({ radius: eggRadius - 5, height: 5, segments: 32 });
+  let cup = subtract(cupOuter, cupInner);
+  cup = union(cup, translate([0, 0, -5], cupBase));
+  cup = translate([0, 0, baseHeight + 7.5], cup);
+
+  let holder = union(base, cup);
+
+  // Grass decoration ring
+  if (grassRing) {
+    for (let i = 0; i < 20; i++) {
+      const angle = (i / 20) * Math.PI * 2;
+      const grassHeight = 8 + Math.random() * 6;
+      const blade = translate([0, 0, grassHeight/2],
+        cuboid({ size: [2, 1, grassHeight] })
+      );
+      const rotatedBlade = translate([
+        Math.cos(angle) * (eggRadius + 5),
+        Math.sin(angle) * (eggRadius + 5),
+        baseHeight
+      ], rotateZ(angle + degToRad(90), blade));
+      holder = union(holder, rotatedBlade);
+    }
+  }
+
+  // Bunny ears
+  if (bunnyEars) {
+    const earHeight = 35;
+    const earWidth = 10;
+
+    const ear1Outer = scale([0.5, 1, 1],
+      cylinder({ radius: earWidth, height: earHeight, segments: 16 })
+    );
+    const ear1Inner = scale([0.3, 0.6, 1],
+      cylinder({ radius: earWidth - 2, height: earHeight - 5, segments: 16 })
+    );
+    let ear1 = subtract(ear1Outer, translate([0, 0, 2], ear1Inner));
+    ear1 = translate([-12, 0, baseHeight + 25], rotateY(degToRad(-15), ear1));
+
+    let ear2 = subtract(
+      scale([0.5, 1, 1], cylinder({ radius: earWidth, height: earHeight, segments: 16 })),
+      translate([0, 0, 2], scale([0.3, 0.6, 1], cylinder({ radius: earWidth - 2, height: earHeight - 5, segments: 16 })))
+    );
+    ear2 = translate([12, 0, baseHeight + 25], rotateY(degToRad(15), ear2));
+
+    holder = union(holder, ear1, ear2);
+  }
+
+  return holder;
+}`,
+  },
+  {
+    id: "menorah-candle-holder",
+    name: "Menorah (Hanukkah)",
+    description: "Traditional 9-branch menorah for Hanukkah candles with decorative base.",
+    category: "holiday",
+    difficulty: "medium",
+    estimatedPrintTime: "3h",
+    printTime: "3h",
+    material: "PLA",
+    icon: "🕎",
+    tags: ["hanukkah", "menorah", "jewish", "holiday", "candle", "chanukah"],
+    dimensions: { width: 200, depth: 40, height: 120 },
+    parameters: [
+      { name: "width", type: "number", default: 200, min: 150, max: 300, step: 25, label: "Total Width (mm)" },
+      { name: "height", type: "number", default: 100, min: 80, max: 150, step: 10, label: "Arm Height (mm)" },
+      { name: "candleHoleDia", type: "number", default: 10, min: 8, max: 14, step: 1, label: "Candle Hole (mm)" },
+      { name: "style", type: "number", default: 1, min: 1, max: 2, step: 1, label: "Style (1=Modern, 2=Traditional)" }
+    ],
+    notes: [
+      "Print in sections for large sizes",
+      "Use blue or silver filament",
+      "Standard Hanukkah candles are ~10mm diameter",
+      "Place on fireproof surface when in use"
+    ],
+    code: `function main(params) {
+  const { width = 200, height = 100, candleHoleDia = 10, style = 1 } = params;
+
+  const spacing = width / 10;
+  const baseWidth = width + 20;
+  const baseDepth = 40;
+  const baseHeight = 10;
+  const armThickness = 8;
+  const shamashHeight = height + 25;
+
+  // Base
+  let base;
+  if (style === 1) {
+    // Modern rectangular base
+    base = cuboid({ size: [baseWidth, baseDepth, baseHeight] });
+  } else {
+    // Traditional curved base
+    base = union(
+      cuboid({ size: [baseWidth, baseDepth - 10, baseHeight] }),
+      translate([0, 0, 0],
+        scale([baseWidth/2/15, 1, 1],
+          cylinder({ radius: 15, height: baseHeight, segments: 32 })
+        )
+      )
+    );
+  }
+  base = translate([0, 0, baseHeight/2], base);
+
+  let menorah = base;
+
+  // Create 9 candle holders (4 on each side + 1 shamash in center)
+  for (let i = -4; i <= 4; i++) {
+    const xPos = i * spacing;
+    const isShamash = i === 0;
+    const armHeight = isShamash ? shamashHeight : height;
+
+    // Vertical arm
+    const arm = cuboid({ size: [armThickness, armThickness, armHeight] });
+    menorah = union(menorah, translate([xPos, 0, baseHeight + armHeight/2], arm));
+
+    // Horizontal connection to center (except for shamash)
+    if (!isShamash && style === 2) {
+      const connHeight = height * 0.6;
+      const connLen = Math.abs(xPos);
+      const horizBar = cuboid({ size: [connLen, armThickness/2, armThickness/2] });
+      menorah = union(menorah, translate([xPos/2, 0, baseHeight + connHeight], horizBar));
+    }
+
+    // Candle cup
+    const cupOuter = cylinder({ radius: candleHoleDia/2 + 3, height: 12, segments: 32 });
+    const cupInner = cylinder({ radius: candleHoleDia/2, height: 13, segments: 32 });
+    const cup = subtract(cupOuter, translate([0, 0, 2], cupInner));
+    menorah = union(menorah, translate([xPos, 0, baseHeight + armHeight + 6], cup));
+  }
+
+  // Add decorative Star of David on front (simplified)
+  if (style === 2) {
+    const starSize = 15;
+    const tri1 = cylinder({ radius: starSize, height: 2, segments: 3 });
+    const tri2 = rotateZ(degToRad(180), cylinder({ radius: starSize, height: 2, segments: 3 }));
+    const star = union(tri1, tri2);
+    menorah = union(menorah, translate([0, baseDepth/2 - 1, baseHeight + 20], rotateX(degToRad(90), star)));
+  }
+
+  return menorah;
+}`,
+  },
+
+  // ============================================
+  // PET ACCESSORIES TEMPLATES
+  // ============================================
+  {
+    id: "pet-food-bowl",
+    name: "Pet Food Bowl with Name",
+    description: "Customizable pet food or water bowl with raised base and personalization area for pet's name.",
+    category: "pets",
+    difficulty: "easy",
+    estimatedPrintTime: "3h",
+    printTime: "3h",
+    material: "PETG",
+    icon: "🐕",
+    tags: ["pet", "dog", "cat", "bowl", "food", "water", "personalized"],
+    dimensions: { width: 150, depth: 150, height: 60 },
+    parameters: [
+      { name: "diameter", type: "number", default: 150, min: 100, max: 200, step: 10, label: "Bowl Diameter (mm)" },
+      { name: "height", type: "number", default: 50, min: 30, max: 80, step: 5, label: "Bowl Height (mm)" },
+      { name: "wallThickness", type: "number", default: 4, min: 3, max: 6, step: 0.5, label: "Wall Thickness (mm)" },
+      { name: "raisedBase", type: "boolean", default: true, label: "Raised Base" }
+    ],
+    notes: [
+      "Use food-safe PETG filament",
+      "Apply food-safe coating for safety",
+      "Print with 100% infill for durability",
+      "Hand wash only recommended"
+    ],
+    code: `function main(params) {
+  const { diameter = 150, height = 50, wallThickness = 4, raisedBase = true } = params;
+  const radius = diameter / 2;
+
+  // Bowl outer shell
+  const outerBowl = cylinder({ radius: radius, height: height, segments: 64 });
+
+  // Inner cavity with sloped sides
+  const innerTop = cylinder({ radius: radius - wallThickness, height: height - wallThickness, segments: 64 });
+  const innerBottom = translate([0, 0, -height * 0.1],
+    cylinder({ radius: radius * 0.6, height: height * 0.3, segments: 64 })
+  );
+
+  let bowl = subtract(
+    translate([0, 0, height/2], outerBowl),
+    translate([0, 0, height/2 + wallThickness], innerTop)
+  );
+
+  // Smooth transition at bottom
+  const bottomCurve = torus({ innerRadius: radius * 0.3, outerRadius: radius - wallThickness, segments: 64 });
+  bowl = union(bowl, translate([0, 0, wallThickness + 5], bottomCurve));
+
+  if (raisedBase) {
+    // Stand/base ring
+    const standHeight = 20;
+    const standOuter = cylinder({ radius: radius * 0.9, height: standHeight, segments: 64 });
+    const standInner = cylinder({ radius: radius * 0.7, height: standHeight + 2, segments: 64 });
+    const stand = subtract(standOuter, standInner);
+
+    // Name plate area on front
+    const namePlate = cuboid({ size: [radius, 15, 3] });
+    const platePos = translate([0, radius * 0.8, standHeight/2], namePlate);
+
+    bowl = translate([0, 0, standHeight], bowl);
+    bowl = union(bowl, translate([0, 0, standHeight/2], stand), platePos);
+  }
+
+  // Anti-slip feet
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2 + Math.PI/4;
+    const foot = cylinder({ radius: 8, height: 3, segments: 16 });
+    bowl = union(bowl, translate([
+      Math.cos(angle) * radius * 0.7,
+      Math.sin(angle) * radius * 0.7,
+      1.5
+    ], foot));
+  }
+
+  return bowl;
+}`,
+  },
+  {
+    id: "treat-dispenser",
+    name: "Pet Treat Dispenser",
+    description: "Interactive treat dispenser that releases treats as pets play with it. Adjustable difficulty.",
+    category: "pets",
+    difficulty: "medium",
+    estimatedPrintTime: "2h 30m",
+    printTime: "2h 30m",
+    material: "PETG",
+    icon: "🦴",
+    tags: ["pet", "treat", "dispenser", "toy", "interactive", "dog", "cat"],
+    dimensions: { width: 80, depth: 80, height: 100 },
+    parameters: [
+      { name: "diameter", type: "number", default: 80, min: 60, max: 120, step: 10, label: "Diameter (mm)" },
+      { name: "holeSize", type: "number", default: 15, min: 10, max: 25, step: 2, label: "Treat Hole Size (mm)" },
+      { name: "holeCount", type: "number", default: 3, min: 2, max: 6, step: 1, label: "Number of Holes" },
+      { name: "weighted", type: "boolean", default: true, label: "Add Weight Cavity" }
+    ],
+    notes: [
+      "Print in two halves",
+      "Add rice or sand for weight",
+      "Adjust hole size for treat type",
+      "Supervise pet during play"
+    ],
+    code: `function main(params) {
+  const { diameter = 80, holeSize = 15, holeCount = 3, weighted = true } = params;
+  const radius = diameter / 2;
+  const height = diameter * 1.2;
+
+  // Main egg/capsule shape
+  const topSphere = translate([0, 0, height - radius],
+    sphere({ radius: radius, segments: 32 })
+  );
+  const bottomSphere = translate([0, 0, radius],
+    sphere({ radius: radius, segments: 32 })
+  );
+  const middleCyl = cylinder({ radius: radius, height: height - radius * 2, segments: 32 });
+
+  let dispenser = union(
+    topSphere,
+    bottomSphere,
+    translate([0, 0, radius + (height - radius * 2)/2], middleCyl)
+  );
+
+  // Hollow inside
+  const innerRadius = radius - 4;
+  const innerTop = translate([0, 0, height - radius],
+    sphere({ radius: innerRadius, segments: 32 })
+  );
+  const innerBottom = translate([0, 0, radius + 10],
+    sphere({ radius: innerRadius, segments: 32 })
+  );
+  const innerCyl = cylinder({ radius: innerRadius, height: height - radius * 2, segments: 32 });
+
+  dispenser = subtract(dispenser,
+    union(innerTop, innerBottom, translate([0, 0, radius + (height - radius * 2)/2], innerCyl))
+  );
+
+  // Treat dispensing holes
+  for (let i = 0; i < holeCount; i++) {
+    const angle = (i / holeCount) * Math.PI * 2;
+    const holeZ = radius + (height - radius * 2) * (0.3 + (i % 2) * 0.4);
+
+    const hole = rotateY(degToRad(90),
+      cylinder({ radius: holeSize/2, height: radius + 5, segments: 16 })
+    );
+    dispenser = subtract(dispenser,
+      translate([0, 0, holeZ], rotateZ(angle, hole))
+    );
+  }
+
+  // Weight cavity at bottom
+  if (weighted) {
+    const weightCavity = cylinder({ radius: radius * 0.4, height: 25, segments: 32 });
+    dispenser = subtract(dispenser, translate([0, 0, 15], weightCavity));
+
+    // Fill hole
+    const fillHole = cylinder({ radius: 8, height: 10, segments: 16 });
+    dispenser = subtract(dispenser, translate([0, 0, 5], fillHole));
+  }
+
+  // Fill opening at top
+  const fillOpening = cylinder({ radius: radius * 0.5, height: 20, segments: 32 });
+  dispenser = subtract(dispenser, translate([0, 0, height - 10], fillOpening));
+
+  return dispenser;
+}`,
+  },
+  {
+    id: "pet-collar-tag",
+    name: "Pet Collar ID Tag",
+    description: "Customizable pet ID tag with various shapes. Add pet name and contact info.",
+    category: "pets",
+    difficulty: "easy",
+    estimatedPrintTime: "30m",
+    printTime: "30m",
+    material: "PETG",
+    icon: "🏷️",
+    tags: ["pet", "collar", "tag", "id", "name", "dog", "cat"],
+    dimensions: { width: 40, depth: 40, height: 5 },
+    parameters: [
+      { name: "size", type: "number", default: 35, min: 25, max: 50, step: 5, label: "Tag Size (mm)" },
+      { name: "thickness", type: "number", default: 4, min: 3, max: 6, step: 0.5, label: "Thickness (mm)" },
+      { name: "shape", type: "number", default: 1, min: 1, max: 4, step: 1, label: "Shape (1=Circle, 2=Bone, 3=Heart, 4=Star)" },
+      { name: "ringSize", type: "number", default: 6, min: 4, max: 10, step: 1, label: "Ring Hole Size (mm)" }
+    ],
+    notes: [
+      "Print flat on bed",
+      "Add text with 3D pen or label",
+      "Use bright colors for visibility",
+      "Consider adding QR code for contact"
+    ],
+    code: `function main(params) {
+  const { size = 35, thickness = 4, shape = 1, ringSize = 6 } = params;
+
+  let tag;
+  const halfSize = size / 2;
+
+  if (shape === 1) {
+    // Circle
+    tag = cylinder({ radius: halfSize, height: thickness, segments: 32 });
+  } else if (shape === 2) {
+    // Bone shape
+    const endRadius = size * 0.25;
+    const boneLength = size * 0.4;
+    const left = cylinder({ radius: endRadius, height: thickness, segments: 16 });
+    const right = cylinder({ radius: endRadius, height: thickness, segments: 16 });
+    const middle = cuboid({ size: [size * 0.3, boneLength, thickness] });
+
+    tag = union(
+      translate([-boneLength, 0, thickness/2], left),
+      translate([boneLength, 0, thickness/2], right),
+      translate([0, 0, thickness/2], middle),
+      translate([-boneLength, endRadius * 0.8, thickness/2], left),
+      translate([-boneLength, -endRadius * 0.8, thickness/2], left),
+      translate([boneLength, endRadius * 0.8, thickness/2], right),
+      translate([boneLength, -endRadius * 0.8, thickness/2], right)
+    );
+  } else if (shape === 3) {
+    // Heart shape
+    const heartR = size * 0.25;
+    const leftLobe = translate([-heartR * 0.8, heartR * 0.5, thickness/2],
+      cylinder({ radius: heartR, height: thickness, segments: 32 })
+    );
+    const rightLobe = translate([heartR * 0.8, heartR * 0.5, thickness/2],
+      cylinder({ radius: heartR, height: thickness, segments: 32 })
+    );
+    const bottom = translate([0, -heartR * 0.3, thickness/2],
+      rotateZ(degToRad(45),
+        cuboid({ size: [heartR * 1.8, heartR * 1.8, thickness] })
+      )
+    );
+    tag = union(leftLobe, rightLobe, bottom);
+  } else {
+    // Star shape
+    tag = cylinder({ radius: halfSize, height: thickness, segments: 5 });
+    tag = translate([0, 0, thickness/2], tag);
+  }
+
+  // Attachment ring
+  const ringPos = shape === 3 ? [0, halfSize * 0.8, 0] : [0, halfSize - ringSize/2, 0];
+  const ring = cylinder({ radius: ringSize, height: thickness, segments: 16 });
+  const ringHole = cylinder({ radius: ringSize/2, height: thickness + 2, segments: 16 });
+
+  tag = union(tag, translate([ringPos[0], ringPos[1], thickness/2], ring));
+  tag = subtract(tag, translate([ringPos[0], ringPos[1], thickness/2], ringHole));
+
+  // Engraving area (recessed circle)
+  const engraveArea = cylinder({ radius: halfSize * 0.6, height: 1, segments: 32 });
+  tag = subtract(tag, translate([0, 0, thickness], engraveArea));
+
+  return tag;
+}`,
+  },
+  {
+    id: "pet-toy-ball",
+    name: "Pet Toy Ball with Holes",
+    description: "Durable hollow ball toy with holes for treats or catnip. Rolls and bounces unpredictably.",
+    category: "pets",
+    difficulty: "easy",
+    estimatedPrintTime: "1h 30m",
+    printTime: "1h 30m",
+    material: "PETG",
+    icon: "⚽",
+    tags: ["pet", "toy", "ball", "treat", "dog", "cat", "play"],
+    dimensions: { width: 70, depth: 70, height: 70 },
+    parameters: [
+      { name: "diameter", type: "number", default: 70, min: 40, max: 100, step: 10, label: "Ball Diameter (mm)" },
+      { name: "wallThickness", type: "number", default: 3, min: 2, max: 5, step: 0.5, label: "Wall Thickness (mm)" },
+      { name: "holeCount", type: "number", default: 12, min: 6, max: 20, step: 2, label: "Number of Holes" },
+      { name: "holeSize", type: "number", default: 12, min: 8, max: 20, step: 2, label: "Hole Size (mm)" }
+    ],
+    notes: [
+      "Print in two hemispheres",
+      "Use PETG for durability",
+      "Adjust hole size for treat type",
+      "Great for hiding treats or catnip"
+    ],
+    code: `function main(params) {
+  const { diameter = 70, wallThickness = 3, holeCount = 12, holeSize = 12 } = params;
+  const radius = diameter / 2;
+
+  // Outer sphere
+  const outer = sphere({ radius: radius, segments: 32 });
+
+  // Inner sphere for hollow
+  const inner = sphere({ radius: radius - wallThickness, segments: 32 });
+
+  let ball = subtract(outer, inner);
+
+  // Create evenly distributed holes using fibonacci sphere
+  const phi = Math.PI * (3 - Math.sqrt(5)); // Golden angle
+
+  for (let i = 0; i < holeCount; i++) {
+    const y = 1 - (i / (holeCount - 1)) * 2; // y goes from 1 to -1
+    const radiusAtY = Math.sqrt(1 - y * y);
+    const theta = phi * i;
+
+    const x = Math.cos(theta) * radiusAtY;
+    const z = Math.sin(theta) * radiusAtY;
+
+    // Create hole pointing outward from center
+    const hole = sphere({ radius: holeSize/2, segments: 16 });
+    ball = subtract(ball, translate([x * radius, y * radius, z * radius], hole));
+  }
+
+  return translate([0, 0, radius], ball);
+}`,
+  },
+  {
+    id: "leash-hook-wall-mount",
+    name: "Leash Hook Wall Mount",
+    description: "Sturdy wall-mounted hook for dog leashes and accessories with shelf for treats.",
+    category: "pets",
+    difficulty: "easy",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PETG",
+    icon: "🪝",
+    tags: ["pet", "leash", "hook", "wall", "mount", "organizer", "dog"],
+    dimensions: { width: 100, depth: 80, height: 120 },
+    parameters: [
+      { name: "hookCount", type: "number", default: 2, min: 1, max: 4, step: 1, label: "Number of Hooks" },
+      { name: "hookLength", type: "number", default: 50, min: 30, max: 80, step: 10, label: "Hook Length (mm)" },
+      { name: "shelfWidth", type: "number", default: 80, min: 0, max: 120, step: 20, label: "Shelf Width (0=none)" },
+      { name: "pawPrint", type: "boolean", default: true, label: "Add Paw Print Decoration" }
+    ],
+    notes: [
+      "Print with back plate flat on bed",
+      "Use 100% infill for strength",
+      "Mount with drywall anchors",
+      "Holds up to 5kg per hook"
+    ],
+    code: `function main(params) {
+  const { hookCount = 2, hookLength = 50, shelfWidth = 80, pawPrint = true } = params;
+
+  const plateWidth = Math.max(hookCount * 40 + 20, shelfWidth);
+  const plateHeight = 100;
+  const plateThickness = 8;
+
+  // Back plate
+  let mount = cuboid({ size: [plateWidth, plateThickness, plateHeight] });
+  mount = translate([0, plateThickness/2, plateHeight/2], mount);
+
+  // Screw holes
+  const screwHole = cylinder({ radius: 3, height: plateThickness + 2, segments: 16 });
+  const counterSink = cylinder({ radius: 6, height: 3, segments: 16 });
+
+  for (let x of [-plateWidth/2 + 15, plateWidth/2 - 15]) {
+    for (let z of [20, plateHeight - 20]) {
+      mount = subtract(mount,
+        translate([x, plateThickness/2, z], rotateX(degToRad(90), screwHole)),
+        translate([x, plateThickness - 1, z], rotateX(degToRad(90), counterSink))
+      );
+    }
+  }
+
+  // Hooks
+  const hookSpacing = plateWidth / (hookCount + 1);
+  for (let i = 0; i < hookCount; i++) {
+    const xPos = -plateWidth/2 + hookSpacing * (i + 1);
+
+    // Hook arm
+    const arm = cuboid({ size: [15, hookLength, 12] });
+    mount = union(mount, translate([xPos, plateThickness + hookLength/2, 60], arm));
+
+    // Hook curl
+    const curlRadius = 15;
+    const curl = subtract(
+      cylinder({ radius: curlRadius, height: 12, segments: 32 }),
+      cylinder({ radius: curlRadius - 6, height: 14, segments: 32 }),
+      translate([0, curlRadius, 0], cuboid({ size: [curlRadius * 3, curlRadius * 2, 20] }))
+    );
+    mount = union(mount, translate([xPos, plateThickness + hookLength + curlRadius - 3, 60],
+      rotateX(degToRad(90), curl)
+    ));
+  }
+
+  // Shelf
+  if (shelfWidth > 0) {
+    const shelfDepth = 50;
+    const shelfThickness = 6;
+    const shelf = cuboid({ size: [shelfWidth, shelfDepth, shelfThickness] });
+    mount = union(mount, translate([0, plateThickness + shelfDepth/2, plateHeight - 10], shelf));
+
+    // Shelf supports
+    const supportL = cuboid({ size: [shelfThickness, shelfDepth - 10, 20] });
+    mount = union(mount,
+      translate([-shelfWidth/2 + shelfThickness/2, plateThickness + (shelfDepth-10)/2, plateHeight - 25], supportL),
+      translate([shelfWidth/2 - shelfThickness/2, plateThickness + (shelfDepth-10)/2, plateHeight - 25], supportL)
+    );
+  }
+
+  // Paw print decoration
+  if (pawPrint) {
+    const pad = cylinder({ radius: 10, height: 2, segments: 32 });
+    const toe = cylinder({ radius: 5, height: 2, segments: 16 });
+
+    let paw = union(
+      translate([0, 0, 0], pad),
+      translate([-8, 12, 0], toe),
+      translate([8, 12, 0], toe),
+      translate([-13, 5, 0], toe),
+      translate([13, 5, 0], toe)
+    );
+    paw = translate([0, plateThickness, 30], rotateX(degToRad(90), paw));
+    mount = subtract(mount, paw);
+  }
+
+  return mount;
+}`,
+  },
+
+  // ============================================
+  // BATHROOM TEMPLATES
+  // ============================================
+  {
+    id: "toothbrush-holder",
+    name: "Toothbrush Holder Stand",
+    description: "Hygienic toothbrush holder with drainage holes and slots for multiple brushes.",
+    category: "bathroom",
+    difficulty: "easy",
+    estimatedPrintTime: "2h",
+    printTime: "2h",
+    material: "PETG",
+    icon: "🪥",
+    tags: ["bathroom", "toothbrush", "holder", "hygiene", "organizer"],
+    dimensions: { width: 80, depth: 80, height: 100 },
+    parameters: [
+      { name: "slots", type: "number", default: 4, min: 2, max: 6, step: 1, label: "Number of Slots" },
+      { name: "slotDiameter", type: "number", default: 18, min: 14, max: 24, step: 2, label: "Slot Diameter (mm)" },
+      { name: "height", type: "number", default: 100, min: 80, max: 140, step: 10, label: "Height (mm)" },
+      { name: "style", type: "number", default: 1, min: 1, max: 2, step: 1, label: "Style (1=Round, 2=Square)" }
+    ],
+    notes: [
+      "Use PETG for water resistance",
+      "Print without supports",
+      "Drainage holes prevent mold",
+      "Clean regularly"
+    ],
+    code: `function main(params) {
+  const { slots = 4, slotDiameter = 18, height = 100, style = 1 } = params;
+
+  const baseSize = Math.max(slots * (slotDiameter + 8) + 20, 80);
+  const wallThickness = 4;
+
+  // Base/container
+  let holder;
+  if (style === 1) {
+    holder = cylinder({ radius: baseSize/2, height: height, segments: 32 });
+    const inner = cylinder({ radius: baseSize/2 - wallThickness, height: height - wallThickness, segments: 32 });
+    holder = subtract(
+      translate([0, 0, height/2], holder),
+      translate([0, 0, height/2 + wallThickness], inner)
+    );
+  } else {
+    holder = cuboid({ size: [baseSize, baseSize, height] });
+    const inner = cuboid({ size: [baseSize - wallThickness * 2, baseSize - wallThickness * 2, height - wallThickness] });
+    holder = subtract(
+      translate([0, 0, height/2], holder),
+      translate([0, 0, height/2 + wallThickness], inner)
+    );
+  }
+
+  // Top plate with holes for toothbrushes
+  const topPlate = style === 1
+    ? cylinder({ radius: baseSize/2, height: 8, segments: 32 })
+    : cuboid({ size: [baseSize, baseSize, 8] });
+
+  holder = union(holder, translate([0, 0, height - 4], topPlate));
+
+  // Brush slots in top plate
+  const slotsPerRow = Math.ceil(Math.sqrt(slots));
+  const spacing = (baseSize - 20) / slotsPerRow;
+
+  for (let i = 0; i < slots; i++) {
+    const row = Math.floor(i / slotsPerRow);
+    const col = i % slotsPerRow;
+    const x = -baseSize/2 + 15 + spacing/2 + col * spacing;
+    const y = -baseSize/2 + 15 + spacing/2 + row * spacing;
+
+    const slot = cylinder({ radius: slotDiameter/2, height: 12, segments: 16 });
+    holder = subtract(holder, translate([x, y, height - 6], slot));
+  }
+
+  // Drainage holes in bottom
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2;
+    const drainHole = cylinder({ radius: 3, height: wallThickness + 2, segments: 8 });
+    holder = subtract(holder, translate([
+      Math.cos(angle) * baseSize * 0.3,
+      Math.sin(angle) * baseSize * 0.3,
+      wallThickness/2
+    ], drainHole));
+  }
+
+  return holder;
+}`,
+  },
+  {
+    id: "soap-dish-drainage",
+    name: "Soap Dish with Drainage",
+    description: "Self-draining soap dish with ridges and drain channels to keep soap dry.",
+    category: "bathroom",
+    difficulty: "easy",
+    estimatedPrintTime: "1h 30m",
+    printTime: "1h 30m",
+    material: "PETG",
+    icon: "🧼",
+    tags: ["bathroom", "soap", "dish", "drainage", "tray"],
+    dimensions: { width: 120, depth: 80, height: 25 },
+    parameters: [
+      { name: "length", type: "number", default: 120, min: 100, max: 150, step: 10, label: "Length (mm)" },
+      { name: "width", type: "number", default: 80, min: 60, max: 100, step: 10, label: "Width (mm)" },
+      { name: "ridgeCount", type: "number", default: 8, min: 4, max: 12, step: 1, label: "Number of Ridges" },
+      { name: "drainAngle", type: "number", default: 5, min: 3, max: 10, step: 1, label: "Drain Angle (deg)" }
+    ],
+    notes: [
+      "Print with drain spout over edge",
+      "PETG resists water well",
+      "Place on absorbent mat",
+      "Ridges keep soap elevated"
+    ],
+    code: `function main(params) {
+  const { length = 120, width = 80, ridgeCount = 8, drainAngle = 5 } = params;
+
+  const baseHeight = 5;
+  const wallHeight = 15;
+  const wallThickness = 3;
+
+  // Angled base for drainage
+  let base = cuboid({ size: [length, width, baseHeight] });
+  base = translate([0, 0, baseHeight/2], rotateX(degToRad(drainAngle), base));
+
+  // Walls
+  const wallLong = cuboid({ size: [length, wallThickness, wallHeight] });
+  const wallShort = cuboid({ size: [wallThickness, width, wallHeight] });
+
+  base = union(base,
+    translate([0, width/2 - wallThickness/2, wallHeight/2], wallLong),
+    translate([0, -width/2 + wallThickness/2, wallHeight/2], wallLong),
+    translate([length/2 - wallThickness/2, 0, wallHeight/2], wallShort),
+    translate([-length/2 + wallThickness/2, 0, wallHeight/2], wallShort)
+  );
+
+  // Drainage ridges
+  const ridgeSpacing = (length - 20) / ridgeCount;
+  for (let i = 0; i < ridgeCount; i++) {
+    const xPos = -length/2 + 10 + ridgeSpacing/2 + i * ridgeSpacing;
+    const ridge = cuboid({ size: [4, width - wallThickness * 4, 8] });
+    base = union(base, translate([xPos, 0, baseHeight + 4], ridge));
+  }
+
+  // Drain spout cutout
+  const spoutWidth = 20;
+  const spout = cuboid({ size: [wallThickness + 2, spoutWidth, wallHeight/2] });
+  base = subtract(base, translate([-length/2, 0, wallHeight * 0.3], spout));
+
+  // Extended drain lip
+  const drainLip = cuboid({ size: [15, spoutWidth - 4, 3] });
+  base = union(base, translate([-length/2 - 5, 0, 1.5], drainLip));
+
+  return base;
+}`,
+  },
+  {
+    id: "towel-hook-bathroom",
+    name: "Modern Towel Hook",
+    description: "Minimalist wall-mounted towel hook with adhesive or screw mount options.",
+    category: "bathroom",
+    difficulty: "easy",
+    estimatedPrintTime: "45m",
+    printTime: "45m",
+    material: "PETG",
+    icon: "🧺",
+    tags: ["bathroom", "towel", "hook", "wall", "mount", "minimalist"],
+    dimensions: { width: 50, depth: 70, height: 50 },
+    parameters: [
+      { name: "hookLength", type: "number", default: 50, min: 30, max: 80, step: 10, label: "Hook Length (mm)" },
+      { name: "hookWidth", type: "number", default: 40, min: 25, max: 60, step: 5, label: "Hook Width (mm)" },
+      { name: "screwMount", type: "boolean", default: true, label: "Screw Holes" },
+      { name: "rounded", type: "boolean", default: true, label: "Rounded Design" }
+    ],
+    notes: [
+      "Print hook facing up",
+      "100% infill for strength",
+      "Use command strips or screws",
+      "Supports 2-3 towels"
+    ],
+    code: `function main(params) {
+  const { hookLength = 50, hookWidth = 40, screwMount = true, rounded = true } = params;
+
+  const plateSize = 50;
+  const plateThickness = 8;
+  const hookThickness = 10;
+
+  // Back plate
+  let plate;
+  if (rounded) {
+    plate = cylinder({ radius: plateSize/2, height: plateThickness, segments: 32 });
+  } else {
+    plate = cuboid({ size: [plateSize, plateSize, plateThickness] });
+  }
+  plate = translate([0, plateThickness/2, 0], rotateX(degToRad(90), plate));
+
+  // Hook arm
+  let arm = cuboid({ size: [hookWidth, hookLength, hookThickness] });
+  arm = translate([0, plateThickness + hookLength/2, 0], arm);
+
+  // Hook curve
+  const curveRadius = 20;
+  let curve = subtract(
+    cylinder({ radius: curveRadius, height: hookWidth, segments: 32 }),
+    cylinder({ radius: curveRadius - hookThickness, height: hookWidth + 2, segments: 32 }),
+    translate([0, 0, -hookWidth], cuboid({ size: [curveRadius * 3, curveRadius * 3, hookWidth * 2] }))
+  );
+  curve = translate([0, plateThickness + hookLength, -curveRadius + hookThickness/2],
+    rotateY(degToRad(90), curve)
+  );
+
+  let hook = union(plate, arm, curve);
+
+  // Screw holes
+  if (screwMount) {
+    const hole = cylinder({ radius: 2.5, height: plateThickness + 2, segments: 16 });
+    const counterSink = cylinder({ radius: 5, height: 3, segments: 16 });
+
+    for (let y of [-plateSize/2 + 12, plateSize/2 - 12]) {
+      hook = subtract(hook,
+        translate([0, plateThickness/2, y], rotateX(degToRad(90), hole)),
+        translate([0, 1, y], rotateX(degToRad(90), counterSink))
+      );
+    }
+  }
+
+  // Round edges if selected
+  if (rounded) {
+    const edgeRound = cylinder({ radius: hookThickness/2, height: hookLength + curveRadius, segments: 16 });
+    hook = union(hook,
+      translate([hookWidth/2 - hookThickness/2, plateThickness + (hookLength + curveRadius)/2, 0], edgeRound),
+      translate([-hookWidth/2 + hookThickness/2, plateThickness + (hookLength + curveRadius)/2, 0], edgeRound)
+    );
+  }
+
+  return hook;
+}`,
+  },
+  {
+    id: "toilet-paper-holder",
+    name: "Toilet Paper Holder",
+    description: "Simple wall-mounted toilet paper holder with spring-loaded or fixed roller option.",
+    category: "bathroom",
+    difficulty: "medium",
+    estimatedPrintTime: "2h 30m",
+    printTime: "2h 30m",
+    material: "PETG",
+    icon: "🧻",
+    tags: ["bathroom", "toilet", "paper", "holder", "wall", "mount"],
+    dimensions: { width: 160, depth: 100, height: 80 },
+    parameters: [
+      { name: "rollWidth", type: "number", default: 110, min: 100, max: 130, step: 5, label: "Roll Width (mm)" },
+      { name: "armLength", type: "number", default: 80, min: 60, max: 100, step: 10, label: "Arm Length (mm)" },
+      { name: "style", type: "number", default: 1, min: 1, max: 2, step: 1, label: "Style (1=Open, 2=Enclosed)" },
+      { name: "shelfTop", type: "boolean", default: true, label: "Phone Shelf on Top" }
+    ],
+    notes: [
+      "Print arms separately",
+      "Mount with drywall anchors",
+      "Standard roll cores are 44mm",
+      "Shelf useful for phone"
+    ],
+    code: `function main(params) {
+  const { rollWidth = 110, armLength = 80, style = 1, shelfTop = true } = params;
+
+  const plateWidth = rollWidth + 40;
+  const plateHeight = 60;
+  const plateThickness = 8;
+  const armThickness = 15;
+
+  // Back plate
+  let holder = cuboid({ size: [plateWidth, plateThickness, plateHeight] });
+  holder = translate([0, plateThickness/2, plateHeight/2], holder);
+
+  // Support arms
+  const leftArm = cuboid({ size: [armThickness, armLength, armThickness] });
+  const rightArm = cuboid({ size: [armThickness, armLength, armThickness] });
+
+  holder = union(holder,
+    translate([-rollWidth/2 - 5, plateThickness + armLength/2, plateHeight/2], leftArm),
+    translate([rollWidth/2 + 5, plateThickness + armLength/2, plateHeight/2], rightArm)
+  );
+
+  if (style === 1) {
+    // Open style - just a bar
+    const bar = cylinder({ radius: 8, height: rollWidth + 10, segments: 16 });
+    holder = union(holder,
+      translate([0, plateThickness + armLength - 10, plateHeight/2], rotateY(degToRad(90), bar))
+    );
+  } else {
+    // Enclosed style - full roller
+    const rollerOuter = cylinder({ radius: 22, height: rollWidth, segments: 32 });
+    const rollerInner = cylinder({ radius: 18, height: rollWidth + 2, segments: 32 });
+    let roller = subtract(rollerOuter, rollerInner);
+    roller = translate([0, plateThickness + armLength - 15, plateHeight/2], rotateY(degToRad(90), roller));
+    holder = union(holder, roller);
+  }
+
+  // Phone shelf on top
+  if (shelfTop) {
+    const shelfDepth = 60;
+    const shelf = cuboid({ size: [plateWidth, shelfDepth, 5] });
+
+    // Lip to prevent phone sliding
+    const lip = cuboid({ size: [plateWidth, 5, 10] });
+
+    holder = union(holder,
+      translate([0, plateThickness + shelfDepth/2, plateHeight + 2.5], shelf),
+      translate([0, plateThickness + shelfDepth - 2.5, plateHeight + 7.5], lip)
+    );
+  }
+
+  // Screw holes
+  const hole = cylinder({ radius: 3, height: plateThickness + 2, segments: 16 });
+  for (let x of [-plateWidth/2 + 15, plateWidth/2 - 15]) {
+    for (let z of [15, plateHeight - 15]) {
+      holder = subtract(holder,
+        translate([x, plateThickness/2, z], rotateX(degToRad(90), hole))
+      );
+    }
+  }
+
+  return holder;
+}`,
+  },
+  {
+    id: "razor-stand",
+    name: "Razor Stand Holder",
+    description: "Elegant stand to store and dry razors. Fits most safety razors and cartridge razors.",
+    category: "bathroom",
+    difficulty: "easy",
+    estimatedPrintTime: "1h",
+    printTime: "1h",
+    material: "PETG",
+    icon: "🪒",
+    tags: ["bathroom", "razor", "stand", "holder", "shaving", "grooming"],
+    dimensions: { width: 50, depth: 50, height: 100 },
+    parameters: [
+      { name: "slotWidth", type: "number", default: 15, min: 10, max: 25, step: 2, label: "Slot Width (mm)" },
+      { name: "height", type: "number", default: 100, min: 80, max: 140, step: 10, label: "Stand Height (mm)" },
+      { name: "baseStyle", type: "number", default: 1, min: 1, max: 3, step: 1, label: "Base Style (1=Round, 2=Square, 3=Hex)" },
+      { name: "drainHoles", type: "boolean", default: true, label: "Drainage Holes" }
+    ],
+    notes: [
+      "Razor hangs blade-up for drying",
+      "PETG for water resistance",
+      "Heavy base prevents tipping",
+      "Works with most razor types"
+    ],
+    code: `function main(params) {
+  const { slotWidth = 15, height = 100, baseStyle = 1, drainHoles = true } = params;
+
+  const baseSize = 50;
+  const baseHeight = 15;
+  const neckWidth = 20;
+
+  // Base
+  let base;
+  if (baseStyle === 1) {
+    base = cylinder({ radius: baseSize/2, height: baseHeight, segments: 32 });
+  } else if (baseStyle === 2) {
+    base = cuboid({ size: [baseSize, baseSize, baseHeight] });
+  } else {
+    base = cylinder({ radius: baseSize/2, height: baseHeight, segments: 6 });
+  }
+  base = translate([0, 0, baseHeight/2], base);
+
+  // Vertical neck
+  const neck = cylinder({ radius: neckWidth/2, height: height - baseHeight - 20, segments: 16 });
+  let stand = union(base, translate([0, 0, baseHeight + (height - baseHeight - 20)/2], neck));
+
+  // Top cradle for razor handle
+  const cradleHeight = 25;
+  const cradleWidth = slotWidth + 20;
+
+  // Outer cradle
+  const cradleOuter = cuboid({ size: [cradleWidth, neckWidth + 10, cradleHeight] });
+
+  // Slot for razor
+  const slot = cuboid({ size: [slotWidth, neckWidth + 15, cradleHeight + 5] });
+
+  let cradle = subtract(cradleOuter, slot);
+  cradle = translate([0, 0, height - cradleHeight/2], cradle);
+
+  stand = union(stand, cradle);
+
+  // Drainage holes in base
+  if (drainHoles) {
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2 + Math.PI/4;
+      const hole = cylinder({ radius: 3, height: baseHeight + 2, segments: 8 });
+      stand = subtract(stand, translate([
+        Math.cos(angle) * baseSize * 0.3,
+        Math.sin(angle) * baseSize * 0.3,
+        baseHeight/2
+      ], hole));
+    }
+  }
+
+  // Decorative ring at top of neck
+  const ring = subtract(
+    cylinder({ radius: neckWidth/2 + 3, height: 5, segments: 32 }),
+    cylinder({ radius: neckWidth/2 - 1, height: 7, segments: 32 })
+  );
+  stand = union(stand, translate([0, 0, height - cradleHeight - 5], ring));
+
+  return stand;
+}`,
+  },
+
+  // ============================================
+  // OUTDOOR/GARDEN TEMPLATES
+  // ============================================
+  {
+    id: "plant-marker-label",
+    name: "Garden Plant Markers",
+    description: "Durable plant labels/markers with stake for garden beds. Customizable text area.",
+    category: "outdoor",
+    difficulty: "easy",
+    estimatedPrintTime: "30m",
+    printTime: "30m",
+    material: "PETG",
+    icon: "🌱",
+    tags: ["garden", "plant", "marker", "label", "outdoor", "vegetables"],
+    dimensions: { width: 60, depth: 4, height: 150 },
+    parameters: [
+      { name: "labelWidth", type: "number", default: 60, min: 40, max: 100, step: 10, label: "Label Width (mm)" },
+      { name: "labelHeight", type: "number", default: 40, min: 30, max: 60, step: 5, label: "Label Height (mm)" },
+      { name: "stakeLength", type: "number", default: 100, min: 80, max: 200, step: 20, label: "Stake Length (mm)" },
+      { name: "shape", type: "number", default: 1, min: 1, max: 3, step: 1, label: "Shape (1=Rect, 2=Oval, 3=Arrow)" }
+    ],
+    notes: [
+      "Print flat on bed",
+      "Use UV-resistant PETG",
+      "Write with permanent marker",
+      "Point stake into soil"
+    ],
+    code: `function main(params) {
+  const { labelWidth = 60, labelHeight = 40, stakeLength = 100, shape = 1 } = params;
+
+  const thickness = 4;
+  const stakeWidth = 15;
+
+  // Label portion
+  let label;
+  if (shape === 1) {
+    // Rectangle with rounded corners
+    label = cuboid({ size: [labelWidth, thickness, labelHeight] });
+    const corner = cylinder({ radius: 5, height: thickness, segments: 16 });
+    for (let x of [-labelWidth/2 + 5, labelWidth/2 - 5]) {
+      for (let z of [-labelHeight/2 + 5, labelHeight/2 - 5]) {
+        label = union(label, translate([x, 0, z], rotateX(degToRad(90), corner)));
+      }
+    }
+  } else if (shape === 2) {
+    // Oval
+    label = scale([labelWidth/labelHeight, thickness/labelHeight, 1],
+      cylinder({ radius: labelHeight/2, height: 1, segments: 32 })
+    );
+    label = rotateX(degToRad(90), label);
+  } else {
+    // Arrow pointing up
+    const arrowBody = cuboid({ size: [labelWidth * 0.6, thickness, labelHeight * 0.7] });
+    const arrowHead = cylinder({ radius: labelWidth/2, height: thickness, segments: 3 });
+    label = union(
+      translate([0, 0, -labelHeight * 0.15], arrowBody),
+      translate([0, 0, labelHeight * 0.3], rotateX(degToRad(90), arrowHead))
+    );
+  }
+  label = translate([0, thickness/2, stakeLength + labelHeight/2], label);
+
+  // Stake
+  const stake = cuboid({ size: [stakeWidth, thickness, stakeLength] });
+
+  // Pointed tip
+  const point = cylinder({ radius: stakeWidth * 0.7, height: thickness, segments: 3 });
+
+  let marker = union(
+    label,
+    translate([0, thickness/2, stakeLength/2], stake),
+    translate([0, thickness/2, 0], rotateX(degToRad(90), rotateZ(degToRad(180), point)))
+  );
+
+  // Text area (recessed)
+  const textArea = cuboid({ size: [labelWidth - 10, 1.5, labelHeight - 10] });
+  marker = subtract(marker, translate([0, thickness, stakeLength + labelHeight/2], textArea));
+
+  return marker;
+}`,
+  },
+  {
+    id: "bird-feeder-simple",
+    name: "Simple Bird Feeder",
+    description: "Easy-to-fill bird feeder with perches and drainage. Hang from tree or hook.",
+    category: "outdoor",
+    difficulty: "medium",
+    estimatedPrintTime: "4h",
+    printTime: "4h",
+    material: "PETG",
+    icon: "🐦",
+    tags: ["garden", "bird", "feeder", "outdoor", "wildlife", "nature"],
+    dimensions: { width: 120, depth: 120, height: 180 },
+    parameters: [
+      { name: "diameter", type: "number", default: 100, min: 80, max: 150, step: 10, label: "Diameter (mm)" },
+      { name: "height", type: "number", default: 150, min: 120, max: 200, step: 20, label: "Height (mm)" },
+      { name: "perchCount", type: "number", default: 4, min: 2, max: 6, step: 1, label: "Number of Perches" },
+      { name: "feedPorts", type: "number", default: 4, min: 2, max: 6, step: 1, label: "Feed Ports" }
+    ],
+    notes: [
+      "Print in 2-3 parts",
+      "Use weather-resistant PETG",
+      "Add drainage holes",
+      "Clean monthly"
+    ],
+    code: `function main(params) {
+  const { diameter = 100, height = 150, perchCount = 4, feedPorts = 4 } = params;
+
+  const radius = diameter / 2;
+  const wallThickness = 4;
+  const roofHeight = 40;
+
+  // Main container body
+  const outer = cylinder({ radius: radius, height: height, segments: 32 });
+  const inner = cylinder({ radius: radius - wallThickness, height: height - wallThickness, segments: 32 });
+  let feeder = subtract(
+    translate([0, 0, height/2], outer),
+    translate([0, 0, height/2 + wallThickness], inner)
+  );
+
+  // Roof (cone shape)
+  const roof = cylinder({ radius: radius + 20, height: roofHeight, segments: 32 });
+  const roofHollow = cylinder({ radius: radius + 10, height: roofHeight - 5, segments: 32 });
+  let roofPart = subtract(
+    translate([0, 0, height + roofHeight/2], roof),
+    translate([0, 0, height + roofHeight/2 - 2], roofHollow)
+  );
+
+  // Roof peak
+  const peak = cylinder({ radius: 8, height: 20, segments: 16 });
+  roofPart = union(roofPart, translate([0, 0, height + roofHeight + 5], peak));
+
+  // Hanging loop
+  const loopOuter = cylinder({ radius: 15, height: 5, segments: 32 });
+  const loopInner = cylinder({ radius: 10, height: 7, segments: 32 });
+  const loop = subtract(loopOuter, loopInner);
+  roofPart = union(roofPart, translate([0, 0, height + roofHeight + 22], loop));
+
+  feeder = union(feeder, roofPart);
+
+  // Feed ports and perches
+  for (let i = 0; i < feedPorts; i++) {
+    const angle = (i / feedPorts) * Math.PI * 2;
+    const portHeight = height * 0.3;
+
+    // Feed port hole
+    const port = sphere({ radius: 12, segments: 16 });
+    feeder = subtract(feeder, translate([
+      Math.cos(angle) * radius,
+      Math.sin(angle) * radius,
+      portHeight
+    ], port));
+
+    // Perch below port
+    if (i < perchCount) {
+      const perch = cylinder({ radius: 4, height: 40, segments: 8 });
+      feeder = union(feeder, translate([
+        Math.cos(angle) * (radius + 15),
+        Math.sin(angle) * (radius + 15),
+        portHeight - 15
+      ], rotateY(degToRad(90), rotateZ(angle, perch))));
+    }
+  }
+
+  // Base tray
+  const tray = cylinder({ radius: radius + 15, height: 8, segments: 32 });
+  const trayInner = cylinder({ radius: radius - 5, height: 6, segments: 32 });
+  let base = subtract(
+    translate([0, 0, 4], tray),
+    translate([0, 0, 5], trayInner)
+  );
+
+  // Drainage holes
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    const drain = cylinder({ radius: 3, height: 10, segments: 8 });
+    base = subtract(base, translate([
+      Math.cos(angle) * radius * 0.5,
+      Math.sin(angle) * radius * 0.5,
+      4
+    ], drain));
+  }
+
+  feeder = union(feeder, base);
+
+  return feeder;
+}`,
+  },
+  {
+    id: "hose-guide-stake",
+    name: "Garden Hose Guide",
+    description: "Stake that guides garden hose around corners and protects plants from hose damage.",
+    category: "outdoor",
+    difficulty: "easy",
+    estimatedPrintTime: "1h",
+    printTime: "1h",
+    material: "PETG",
+    icon: "🌿",
+    tags: ["garden", "hose", "guide", "stake", "outdoor", "lawn"],
+    dimensions: { width: 80, depth: 80, height: 250 },
+    parameters: [
+      { name: "stakeHeight", type: "number", default: 200, min: 150, max: 300, step: 25, label: "Stake Height (mm)" },
+      { name: "guideHeight", type: "number", default: 80, min: 60, max: 120, step: 10, label: "Guide Height (mm)" },
+      { name: "guideRadius", type: "number", default: 40, min: 30, max: 60, step: 5, label: "Guide Curve Radius (mm)" },
+      { name: "decorative", type: "boolean", default: true, label: "Decorative Top" }
+    ],
+    notes: [
+      "Print stake portion solid",
+      "Use PETG for UV resistance",
+      "Hammer gently into ground",
+      "Place at garden bed corners"
+    ],
+    code: `function main(params) {
+  const { stakeHeight = 200, guideHeight = 80, guideRadius = 40, decorative = true } = params;
+
+  const stakeWidth = 20;
+  const groundPortion = stakeHeight * 0.4;
+
+  // Main stake body
+  let stake = cuboid({ size: [stakeWidth, stakeWidth, stakeHeight] });
+  stake = translate([0, 0, stakeHeight/2], stake);
+
+  // Pointed bottom
+  const point = cylinder({ radius: stakeWidth * 0.7, height: stakeWidth, segments: 4 });
+  const pointCut = translate([0, 0, -stakeWidth/2], rotateZ(degToRad(45), point));
+  stake = subtract(stake, pointCut);
+
+  // Hose guide curve (half cylinder)
+  const guideFull = cylinder({ radius: guideRadius, height: guideHeight, segments: 32 });
+  const guideInner = cylinder({ radius: guideRadius - 10, height: guideHeight + 2, segments: 32 });
+  const guideCut = translate([guideRadius/2, 0, 0], cuboid({ size: [guideRadius, guideRadius * 2, guideHeight + 4] }));
+
+  let guide = subtract(guideFull, guideInner, guideCut);
+  guide = translate([-guideRadius + stakeWidth/2, 0, stakeHeight - groundPortion + guideHeight/2], guide);
+
+  stake = union(stake, guide);
+
+  // Decorative top
+  if (decorative) {
+    // Simple finial
+    const ball = sphere({ radius: 15, segments: 16 });
+    const neck = cylinder({ radius: 8, height: 15, segments: 16 });
+    stake = union(stake,
+      translate([0, 0, stakeHeight + 8], neck),
+      translate([0, 0, stakeHeight + 22], ball)
+    );
+  }
+
+  // Strengthen junction
+  const support = cylinder({ radius: stakeWidth/2 + 5, height: 10, segments: 16 });
+  stake = union(stake, translate([0, 0, stakeHeight - groundPortion], support));
+
+  return stake;
+}`,
+  },
+  {
+    id: "garden-tool-holder",
+    name: "Garden Tool Wall Holder",
+    description: "Wall-mounted organizer for garden hand tools like trowels, pruners, and gloves.",
+    category: "outdoor",
+    difficulty: "medium",
+    estimatedPrintTime: "3h",
+    printTime: "3h",
+    material: "PETG",
+    icon: "🛠️",
+    tags: ["garden", "tools", "holder", "organizer", "wall", "storage"],
+    dimensions: { width: 300, depth: 100, height: 150 },
+    parameters: [
+      { name: "width", type: "number", default: 300, min: 200, max: 400, step: 50, label: "Total Width (mm)" },
+      { name: "slots", type: "number", default: 4, min: 2, max: 6, step: 1, label: "Tool Slots" },
+      { name: "hookCount", type: "number", default: 2, min: 0, max: 4, step: 1, label: "Side Hooks" },
+      { name: "shelfIncluded", type: "boolean", default: true, label: "Include Shelf" }
+    ],
+    notes: [
+      "Print in sections for large sizes",
+      "Mount on shed or garage wall",
+      "PETG for outdoor durability",
+      "Use stainless steel screws"
+    ],
+    code: `function main(params) {
+  const { width = 300, slots = 4, hookCount = 2, shelfIncluded = true } = params;
+
+  const backHeight = 120;
+  const backThickness = 8;
+  const slotWidth = 35;
+  const slotDepth = 60;
+  const slotHeight = 80;
+
+  // Back panel
+  let holder = cuboid({ size: [width, backThickness, backHeight] });
+  holder = translate([0, backThickness/2, backHeight/2], holder);
+
+  // Tool slots
+  const slotSpacing = width / (slots + 1);
+  for (let i = 0; i < slots; i++) {
+    const xPos = -width/2 + slotSpacing * (i + 1);
+
+    // Slot walls
+    const leftWall = cuboid({ size: [5, slotDepth, slotHeight] });
+    const rightWall = cuboid({ size: [5, slotDepth, slotHeight] });
+    const bottom = cuboid({ size: [slotWidth + 10, slotDepth, 5] });
+
+    holder = union(holder,
+      translate([xPos - slotWidth/2 - 2.5, backThickness + slotDepth/2, slotHeight/2], leftWall),
+      translate([xPos + slotWidth/2 + 2.5, backThickness + slotDepth/2, slotHeight/2], rightWall),
+      translate([xPos, backThickness + slotDepth/2, 2.5], bottom)
+    );
+
+    // Drainage hole
+    const drain = cylinder({ radius: 5, height: 10, segments: 8 });
+    holder = subtract(holder, translate([xPos, backThickness + slotDepth/2, 0], drain));
+  }
+
+  // Side hooks for gloves, twine, etc.
+  for (let i = 0; i < hookCount; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const yOffset = i < 2 ? backHeight * 0.7 : backHeight * 0.3;
+
+    const hookArm = cuboid({ size: [40, 8, 8] });
+    const hookEnd = cuboid({ size: [8, 8, 20] });
+
+    holder = union(holder,
+      translate([side * (width/2 - 20), backThickness + 20, yOffset], hookArm),
+      translate([side * (width/2 - 5), backThickness + 36, yOffset - 6], hookEnd)
+    );
+  }
+
+  // Top shelf
+  if (shelfIncluded) {
+    const shelfDepth = 80;
+    const shelf = cuboid({ size: [width, shelfDepth, 6] });
+    const lip = cuboid({ size: [width, 6, 15] });
+
+    holder = union(holder,
+      translate([0, backThickness + shelfDepth/2, backHeight + 3], shelf),
+      translate([0, backThickness + shelfDepth - 3, backHeight + 10], lip)
+    );
+  }
+
+  // Mounting holes
+  const hole = cylinder({ radius: 4, height: backThickness + 2, segments: 16 });
+  for (let x of [-width/2 + 20, width/2 - 20]) {
+    for (let z of [20, backHeight - 20]) {
+      holder = subtract(holder, translate([x, backThickness/2, z], rotateX(degToRad(90), hole)));
+    }
+  }
+
+  return holder;
+}`,
+  },
+  {
+    id: "planter-with-drainage",
+    name: "Plant Pot with Drainage",
+    description: "Self-draining plant pot with saucer. Modern design with geometric patterns optional.",
+    category: "outdoor",
+    difficulty: "medium",
+    estimatedPrintTime: "4h",
+    printTime: "4h",
+    material: "PETG",
+    icon: "🪴",
+    tags: ["garden", "planter", "pot", "drainage", "plants", "indoor"],
+    dimensions: { width: 120, depth: 120, height: 120 },
+    parameters: [
+      { name: "diameter", type: "number", default: 100, min: 60, max: 200, step: 20, label: "Top Diameter (mm)" },
+      { name: "height", type: "number", default: 100, min: 60, max: 180, step: 20, label: "Pot Height (mm)" },
+      { name: "taper", type: "number", default: 0.8, min: 0.6, max: 1.0, step: 0.05, label: "Bottom Taper Ratio" },
+      { name: "pattern", type: "number", default: 0, min: 0, max: 3, step: 1, label: "Pattern (0=None, 1=Ribs, 2=Hex, 3=Waves)" }
+    ],
+    notes: [
+      "Print pot and saucer separately",
+      "Inner pot lifts out for watering",
+      "Pattern is decorative only",
+      "Use for indoor or outdoor plants"
+    ],
+    code: `function main(params) {
+  const { diameter = 100, height = 100, taper = 0.8, pattern = 0 } = params;
+
+  const topRadius = diameter / 2;
+  const bottomRadius = topRadius * taper;
+  const wallThickness = 4;
+  const drainHeight = 15;
+
+  // Main pot body (tapered cylinder)
+  let pot = cylinder({ radius: topRadius, height: height, segments: 32 });
+
+  // Taper the pot
+  const taperCut = translate([0, 0, -height],
+    cylinder({ radius: topRadius * 2, height: height * 2, segments: 32 })
+  );
+  // Simple approximation: use a slightly smaller bottom
+  const innerTop = cylinder({ radius: topRadius - wallThickness, height: height - wallThickness, segments: 32 });
+
+  pot = subtract(
+    translate([0, 0, height/2], pot),
+    translate([0, 0, height/2 + wallThickness], innerTop)
+  );
+
+  // Drainage platform (raised inner bottom with holes)
+  const platform = cylinder({ radius: bottomRadius - wallThickness - 2, height: drainHeight, segments: 32 });
+  const platformHoles = [];
+
+  // Multiple drainage holes
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2;
+    const r = bottomRadius * 0.4;
+    platformHoles.push(translate([
+      Math.cos(angle) * r,
+      Math.sin(angle) * r,
+      drainHeight/2
+    ], cylinder({ radius: 4, height: drainHeight + 2, segments: 8 })));
+  }
+  // Center hole
+  platformHoles.push(translate([0, 0, drainHeight/2], cylinder({ radius: 5, height: drainHeight + 2, segments: 8 })));
+
+  let drainPlatform = subtract(translate([0, 0, wallThickness + drainHeight/2], platform), ...platformHoles);
+  pot = union(pot, drainPlatform);
+
+  // Add patterns
+  if (pattern === 1) {
+    // Vertical ribs
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2;
+      const rib = translate([topRadius - 2, 0, height/2],
+        cylinder({ radius: 3, height: height * 0.8, segments: 8 })
+      );
+      pot = subtract(pot, rotateZ(angle, rib));
+    }
+  } else if (pattern === 2) {
+    // Hexagonal indents
+    for (let row = 0; row < 3; row++) {
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2 + (row % 2) * Math.PI/8;
+        const zPos = 25 + row * 30;
+        const hex = translate([topRadius, 0, zPos],
+          rotateY(degToRad(90),
+            cylinder({ radius: 12, height: 4, segments: 6 })
+          )
+        );
+        pot = subtract(pot, rotateZ(angle, hex));
+      }
+    }
+  } else if (pattern === 3) {
+    // Wave pattern (horizontal grooves)
+    for (let i = 0; i < 5; i++) {
+      const zPos = 20 + i * 18;
+      const wave = subtract(
+        cylinder({ radius: topRadius + 2, height: 8, segments: 32 }),
+        cylinder({ radius: topRadius - 3, height: 10, segments: 32 })
+      );
+      pot = subtract(pot, translate([0, 0, zPos], wave));
+    }
+  }
+
+  // Saucer/tray
+  const saucerRadius = topRadius + 15;
+  const saucerHeight = 20;
+  const saucerOuter = cylinder({ radius: saucerRadius, height: saucerHeight, segments: 32 });
+  const saucerInner = cylinder({ radius: saucerRadius - 5, height: saucerHeight - 4, segments: 32 });
+  let saucer = subtract(saucerOuter, translate([0, 0, 4], saucerInner));
+  saucer = translate([diameter + 30, 0, saucerHeight/2], saucer);
+
+  return union(pot, saucer);
+}`,
+  },
 ]
 
 export const CATEGORIES = [
@@ -4265,4 +6084,9 @@ export const CATEGORIES = [
   { value: "household", label: "Household" },
   { value: "toys-games", label: "Toys & Games" },
   { value: "maker-tools", label: "Maker Tools" },
+  // New categories
+  { value: "holiday", label: "Holiday & Seasonal" },
+  { value: "pets", label: "Pet Accessories" },
+  { value: "bathroom", label: "Bathroom" },
+  { value: "outdoor", label: "Outdoor & Garden" },
 ]

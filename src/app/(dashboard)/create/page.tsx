@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, Suspense } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, Maximize2, Minimize2, RotateCcw, Library, Pencil } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, BarChart3, PanelLeftClose, PanelLeft, PanelRightClose, RotateCcw, Library, Pencil, Share2, Copy, X } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +22,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
 import type { User } from "@supabase/supabase-js"
+import { TEMPLATES } from "@/lib/templates"
 
 // Dynamic import for 3D viewer (no SSR)
 const ModelViewer = dynamic(() => import("@/components/3d/ModelViewer"), {
@@ -62,7 +65,21 @@ const SUGGESTION_PROMPTS = [
   { text: "Watch charging dock", icon: "⌚" },
 ]
 
+// Main page component with Suspense wrapper for useSearchParams
 export default function CreatePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-full bg-gray-900">
+        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+      </div>
+    }>
+      <CreatePageContent />
+    </Suspense>
+  )
+}
+
+function CreatePageContent() {
+  const searchParams = useSearchParams()
   const [prompt, setPrompt] = useState("")
   const [response, setResponse] = useState<JSCADResponse | null>(null)
   const [user, setUser] = useState<User | null>(null)
@@ -75,6 +92,11 @@ export default function CreatePage() {
   const [showLeftPanel, setShowLeftPanel] = useState(true)
   const [modelName, setModelName] = useState("Untitled Model")
   const [isEditingName, setIsEditingName] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareableUrl, setShareableUrl] = useState("")
+  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null)
+  const [urlParamsLoaded, setUrlParamsLoaded] = useState(false)
   const supabase = createClient()
 
   // Get user on mount
@@ -92,6 +114,7 @@ export default function CreatePage() {
     modelName: storeModelName,
     setModelName: setStoreModelName,
     setParameters,
+    setParameterValue,
     parameterValues,
     geometry,
     setGeometry,
@@ -118,6 +141,76 @@ export default function CreatePage() {
     }
   }, [storeModelName])
 
+  // Load template and parameters from URL on mount
+  useEffect(() => {
+    if (urlParamsLoaded) return
+
+    const templateId = searchParams.get("template")
+    if (!templateId) {
+      setUrlParamsLoaded(true)
+      return
+    }
+
+    const template = TEMPLATES.find((t) => t.id === templateId)
+    if (!template) {
+      setUrlParamsLoaded(true)
+      return
+    }
+
+    // Load the template
+    setCurrentTemplateId(templateId)
+    setCode(template.code)
+    setModelName(template.name)
+    setStoreModelName(template.name)
+    setParameters(template.parameters)
+
+    // Build parameter values from URL or use defaults
+    const urlParamValues: Record<string, number | boolean | string> = {}
+    template.parameters.forEach((param) => {
+      const urlValue = searchParams.get(param.name)
+      if (urlValue !== null) {
+        // Parse the value based on parameter type
+        if (param.type === "boolean") {
+          urlParamValues[param.name] = urlValue === "true"
+        } else if (param.type === "number") {
+          const numValue = parseFloat(urlValue)
+          // Clamp to min/max if specified
+          if (!isNaN(numValue)) {
+            let clampedValue = numValue
+            if (param.min !== undefined) clampedValue = Math.max(param.min, clampedValue)
+            if (param.max !== undefined) clampedValue = Math.min(param.max, clampedValue)
+            urlParamValues[param.name] = clampedValue
+          } else {
+            urlParamValues[param.name] = param.default
+          }
+        } else {
+          urlParamValues[param.name] = urlValue
+        }
+      } else {
+        urlParamValues[param.name] = param.default
+      }
+    })
+
+    // Set all parameter values
+    Object.entries(urlParamValues).forEach(([name, value]) => {
+      setParameterValue(name, value)
+    })
+
+    // Compile the model with the loaded parameters
+    const compileFromUrl = async () => {
+      try {
+        const geom = await compileJSCAD(template.code, urlParamValues)
+        setGeometry(geom)
+        setMobileShowViewer(true)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load template")
+      }
+    }
+    compileFromUrl()
+
+    setUrlParamsLoaded(true)
+  }, [searchParams, urlParamsLoaded, setCode, setParameters, setParameterValue, setGeometry, setError, setStoreModelName])
+
   // Reset everything to start fresh
   const handleReset = useCallback(() => {
     setPrompt("")
@@ -130,6 +223,11 @@ export default function CreatePage() {
     setShowIdeas(false)
     setModelName("Untitled Model")
     setIsEditingName(false)
+    setCurrentTemplateId(null)
+    setShowShareModal(false)
+    setShareableUrl("")
+    // Update URL to remove query params without reload
+    window.history.replaceState({}, "", "/create")
   }, [setCode, setGeometry, setParameters, setError])
 
   // Add generated model to scene as an editable object
@@ -229,10 +327,46 @@ export default function CreatePage() {
     }
   }
 
-  const handleDownload = () => {
-    if (geometry) {
-      const filename = response?.description?.split(" ").slice(0, 3).join("_") || "model"
-      downloadSTL(geometry, `${filename}.stl`)
+  const handleDownload = async () => {
+    // Determine which geometry to export - editor objects take priority
+    const geometryToExport = editorObjects.length > 0
+      ? editorObjects[0]?.geometry
+      : geometry
+
+    if (!geometryToExport) {
+      toast.error("No model to export", {
+        description: "Generate or create a model first before downloading.",
+      })
+      return
+    }
+
+    setIsDownloading(true)
+
+    try {
+      // Sanitize model name for filename
+      const sanitizedName = modelName
+        .replace(/[^a-zA-Z0-9\s-_]/g, "") // Remove special characters
+        .replace(/\s+/g, "_") // Replace spaces with underscores
+        .substring(0, 50) // Limit length
+        .trim() || "model"
+
+      const filename = `${sanitizedName}.stl`
+
+      // Use a small delay to ensure UI updates (loading state shows)
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      downloadSTL(geometryToExport, filename)
+
+      toast.success("STL downloaded", {
+        description: `Saved as ${filename}`,
+      })
+    } catch (err) {
+      console.error("STL download error:", err)
+      toast.error("Download failed", {
+        description: err instanceof Error ? err.message : "Failed to generate STL file. Please try again.",
+      })
+    } finally {
+      setIsDownloading(false)
     }
   }
 
@@ -308,6 +442,65 @@ export default function CreatePage() {
       setError(err instanceof Error ? err.message : "Failed to save model")
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // Generate shareable URL with current template and parameters
+  const generateShareableUrl = useCallback(() => {
+    // Try to find a matching template for current code
+    let templateId = currentTemplateId
+    if (!templateId) {
+      // Try to match by code
+      const matchingTemplate = TEMPLATES.find((t) => t.code.trim() === code.trim())
+      if (matchingTemplate) {
+        templateId = matchingTemplate.id
+      }
+    }
+
+    if (!templateId) {
+      toast.error("Share not available", {
+        description: "Sharing is only available for library templates. Save your model first to share it.",
+      })
+      return null
+    }
+
+    const url = new URL(window.location.origin + "/create")
+    url.searchParams.set("template", templateId)
+
+    // Add current parameter values that differ from defaults
+    const template = TEMPLATES.find((t) => t.id === templateId)
+    if (template) {
+      template.parameters.forEach((param) => {
+        const currentValue = parameterValues[param.name]
+        if (currentValue !== undefined && currentValue !== param.default) {
+          url.searchParams.set(param.name, String(currentValue))
+        }
+      })
+    }
+
+    return url.toString()
+  }, [currentTemplateId, code, parameterValues])
+
+  // Handle share button click
+  const handleShare = () => {
+    const url = generateShareableUrl()
+    if (url) {
+      setShareableUrl(url)
+      setShowShareModal(true)
+    }
+  }
+
+  // Copy URL to clipboard
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(shareableUrl)
+      toast.success("Link copied!", {
+        description: "Share this link with others to show your customized model.",
+      })
+    } catch {
+      toast.error("Failed to copy", {
+        description: "Please select and copy the link manually.",
+      })
     }
   }
 
@@ -555,15 +748,31 @@ export default function CreatePage() {
                 <span className="hidden lg:inline">{saveSuccess ? "Saved!" : "Save"}</span>
               </Button>
             )}
+            {code && (currentTemplateId || TEMPLATES.some((t) => t.code.trim() === code.trim())) && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleShare}
+                className="bg-gray-800/80 backdrop-blur-sm"
+                title="Share this model configuration"
+              >
+                <Share2 className="w-4 h-4 lg:mr-2" />
+                <span className="hidden lg:inline">Share</span>
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
               onClick={handleDownload}
-              disabled={!geometry && editorObjects.length === 0}
+              disabled={isDownloading || (!geometry && editorObjects.length === 0)}
               className="bg-gray-800/80 backdrop-blur-sm"
             >
-              <Download className="w-4 h-4 lg:mr-2" />
-              <span className="hidden lg:inline">Download STL</span>
+              {isDownloading ? (
+                <Loader2 className="w-4 h-4 lg:mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 lg:mr-2" />
+              )}
+              <span className="hidden lg:inline">{isDownloading ? "Exporting..." : "Download STL"}</span>
             </Button>
             <Button
               variant="secondary"
@@ -665,6 +874,93 @@ export default function CreatePage() {
           </div>
         )}
       </div>
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-lg font-semibold text-gray-200">Share Your Model</h2>
+              </div>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-gray-400">
+                Share this link with others. They will see the same template with your customized parameters.
+              </p>
+
+              {/* URL Display and Copy */}
+              <div className="flex gap-2">
+                <div className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-3 overflow-hidden">
+                  <p className="text-sm text-gray-300 truncate font-mono">
+                    {shareableUrl}
+                  </p>
+                </div>
+                <Button
+                  onClick={handleCopyUrl}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white px-4"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy
+                </Button>
+              </div>
+
+              {/* Current Parameters Summary */}
+              {parameters.length > 0 && (
+                <div className="bg-gray-800/50 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-gray-400 mb-2">Current Parameter Values:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {parameters.slice(0, 6).map((param) => (
+                      <div key={param.name} className="text-xs">
+                        <span className="text-gray-500">{param.label}: </span>
+                        <span className="text-cyan-400">
+                          {parameterValues[param.name] !== undefined
+                            ? String(parameterValues[param.name])
+                            : String(param.default)}
+                          {param.unit ? ` ${param.unit}` : ""}
+                        </span>
+                      </div>
+                    ))}
+                    {parameters.length > 6 && (
+                      <div className="text-xs text-gray-500 col-span-2">
+                        +{parameters.length - 6} more parameters...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-800 bg-gray-900/50">
+              <Button
+                variant="ghost"
+                onClick={() => setShowShareModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                Close
+              </Button>
+              <Button
+                onClick={handleCopyUrl}
+                className="bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copy Link
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

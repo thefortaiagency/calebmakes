@@ -54,6 +54,11 @@ export const JSCADResponseSchema = z.object({
     "household",
     "toys-games",
     "maker-tools",
+    // New categories
+    "holiday",
+    "pets",
+    "bathroom",
+    "outdoor",
   ]),
 })
 
