@@ -45,9 +45,11 @@ function Vector3Input({
     value[2].toString(),
   ])
 
+  // Use individual values as dependencies to avoid array reference issues
+  const [v0, v1, v2] = value
   useEffect(() => {
-    setLocalValue([value[0].toString(), value[1].toString(), value[2].toString()])
-  }, [value])
+    setLocalValue([v0.toString(), v1.toString(), v2.toString()])
+  }, [v0, v1, v2])
 
   const handleChange = (index: number, strValue: string) => {
     const newLocal = [...localValue] as [string, string, string]
