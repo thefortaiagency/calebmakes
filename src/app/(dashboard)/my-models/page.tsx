@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { FolderHeart, Plus, Printer, MoreVertical, Loader2, LogIn, Edit3, Copy, Download, Trash2 } from "lucide-react"
+import dynamic from "next/dynamic"
+import { FolderHeart, Plus, Printer, MoreVertical, Loader2, LogIn, Edit3, Copy, Trash2, Camera } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,7 +19,12 @@ import { createClient } from "@/lib/supabase/client"
 import { useModelStore } from "@/lib/store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import type { User } from "@supabase/supabase-js"
-import type { Parameter } from "@/lib/types"
+import type { Parameter, GeometryData } from "@/lib/types"
+
+const ThumbnailCaptureModal = dynamic(
+  () => import("@/components/3d/ThumbnailCaptureModal"),
+  { ssr: false }
+)
 
 interface Model {
   id: string
@@ -37,6 +43,8 @@ export default function MyModelsPage() {
   const [models, setModels] = useState<Model[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingModel, setLoadingModel] = useState<string | null>(null)
+  const [thumbnailModel, setThumbnailModel] = useState<Model | null>(null)
+  const [thumbnailGeometry, setThumbnailGeometry] = useState<GeometryData | null>(null)
   const supabase = createClient()
   const router = useRouter()
   const { setCode, setParameters, setGeometry, setError } = useModelStore()
@@ -122,6 +130,76 @@ export default function MyModelsPage() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
       setModels(newModels || [])
+    }
+  }
+
+  const handleCaptureThumbnail = async (model: Model) => {
+    setLoadingModel(model.id)
+    setError(null)
+
+    try {
+      // Compile the model to get geometry
+      const defaultParams = (model.parameters || []).reduce(
+        (acc, p) => ({ ...acc, [p.name]: p.default }),
+        {}
+      )
+      const geom = await compileJSCAD(model.code, defaultParams)
+      setThumbnailGeometry(geom)
+      setThumbnailModel(model)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to compile model")
+    } finally {
+      setLoadingModel(null)
+    }
+  }
+
+  const handleThumbnailCaptured = async (imageData: string) => {
+    if (!thumbnailModel || !user) return
+
+    try {
+      // Convert base64 to blob
+      const base64Data = imageData.replace(/^data:image\/png;base64,/, "")
+      const byteCharacters = atob(base64Data)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: "image/png" })
+
+      // Upload to Supabase Storage
+      const fileName = `models/${user.id}/${thumbnailModel.id}.png`
+      const { error: uploadError } = await supabase.storage
+        .from("thumbnails")
+        .upload(fileName, blob, {
+          contentType: "image/png",
+          upsert: true,
+        })
+
+      if (uploadError) throw uploadError
+
+      // Get the public URL
+      const { data } = supabase.storage
+        .from("thumbnails")
+        .getPublicUrl(fileName)
+
+      const thumbnailUrl = `${data.publicUrl}?t=${Date.now()}`
+
+      // Update the model with the new thumbnail URL
+      const { error: updateError } = await supabase
+        .from("models")
+        .update({ thumbnail_url: thumbnailUrl })
+        .eq("id", thumbnailModel.id)
+
+      if (updateError) throw updateError
+
+      // Update local state
+      setModels(models.map(m =>
+        m.id === thumbnailModel.id ? { ...m, thumbnail_url: thumbnailUrl } : m
+      ))
+    } catch (err) {
+      console.error("Failed to save thumbnail:", err)
+      setError(err instanceof Error ? err.message : "Failed to save thumbnail")
     }
   }
 
@@ -257,6 +335,10 @@ export default function MyModelsPage() {
                           <Copy className="w-4 h-4 mr-2" />
                           Duplicate
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCaptureThumbnail(model) }}>
+                          <Camera className="w-4 h-4 mr-2" />
+                          Capture Thumbnail
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-red-400"
@@ -287,6 +369,20 @@ export default function MyModelsPage() {
           </div>
         )}
       </div>
+
+      {/* Thumbnail Capture Modal */}
+      {thumbnailModel && thumbnailGeometry && (
+        <ThumbnailCaptureModal
+          isOpen={!!thumbnailModel}
+          onClose={() => {
+            setThumbnailModel(null)
+            setThumbnailGeometry(null)
+          }}
+          geometry={thumbnailGeometry}
+          onCapture={handleThumbnailCaptured}
+          title={`Capture Thumbnail for ${thumbnailModel.name}`}
+        />
+      )}
     </div>
   )
 }
