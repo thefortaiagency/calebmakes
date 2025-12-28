@@ -8,10 +8,14 @@ import * as THREE from "three"
 import { useModelStore } from "@/lib/store"
 import type { GeometryData } from "@/lib/types"
 
-// Create XR store for VR session management
+// Create XR store for VR session management with hand tracking enabled
 const xrStore = createXRStore({
   foveation: 0,
   frameRate: "high",
+  // Enable hand tracking (default is true, but being explicit)
+  hand: true,
+  // Enable controllers too
+  controller: true,
 })
 
 function Loader() {
@@ -137,14 +141,14 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
     }
   }, [])
 
-  // Handle VR controller grab
+  // Handle VR controller/hand grab
   const handleSelectStart = (e: any) => {
     if (!groupRef.current) return
     setIsGrabbed(true)
 
-    // Calculate offset from controller to model
-    const controllerPos = e.target?.object?.position || new THREE.Vector3()
-    grabOffset.current.copy(groupRef.current.position).sub(controllerPos)
+    // Calculate offset from controller/hand to model
+    const inputPos = e.target?.object?.position || new THREE.Vector3()
+    grabOffset.current.copy(groupRef.current.position).sub(inputPos)
   }
 
   const handleSelectEnd = () => {
@@ -155,6 +159,15 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
       offset.current.y = groupRef.current.position.y
       offset.current.z = groupRef.current.position.z
     }
+  }
+
+  // Handle pinch gesture from hands (squeeze event)
+  const handleSqueezeStart = (e: any) => {
+    handleSelectStart(e) // Same behavior as trigger
+  }
+
+  const handleSqueezeEnd = () => {
+    handleSelectEnd() // Same behavior as trigger release
   }
 
   useFrame((state, delta) => {
@@ -211,6 +224,8 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
       <Interactive
         onSelectStart={handleSelectStart}
         onSelectEnd={handleSelectEnd}
+        onSqueezeStart={handleSqueezeStart}
+        onSqueezeEnd={handleSqueezeEnd}
         onHover={() => setIsHovered(true)}
         onBlur={() => setIsHovered(false)}
       >
@@ -248,7 +263,7 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
           anchorX="center"
           anchorY="middle"
         >
-          Trigger to grab
+          Trigger or pinch to grab
         </Text>
       )}
       {isGrabbed && (
@@ -259,7 +274,7 @@ function VRModel({ geometry, color, scale }: VRModelProps) {
           anchorX="center"
           anchorY="middle"
         >
-          Grabbed - move controller
+          Grabbed! Move to reposition
         </Text>
       )}
     </group>
