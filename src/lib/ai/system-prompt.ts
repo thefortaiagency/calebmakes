@@ -54,6 +54,13 @@ UTILITIES:
 7. ROUND BOTTOM EDGES: Use roundRadius >= 1mm on bottom for bed adhesion
 8. HEIGHT LIMIT: Keep under 150mm for reasonable print times
 
+## CRITICAL GEOMETRY RULES
+- roundRadius MUST be LESS THAN half the smallest dimension!
+  - If size is [20, 30, 10], max roundRadius is 4 (less than 10/2)
+  - Safe rule: Use roundRadius = Math.min(smallest_dimension * 0.3, 3)
+- Always calculate roundRadius based on the smallest dimension
+- When in doubt, use roundRadius: 2 (safe default)
+
 ## CODE TEMPLATE
 Always use this exact structure:
 

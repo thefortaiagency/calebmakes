@@ -1,0 +1,50 @@
+[
+  {
+    "id": "phone-stand-1",
+    "name": "Simple Phone Stand",
+    "imagePath": "/templates/phone-stand-1.png",
+    "success": true
+  },
+  {
+    "id": "cable-organizer-1",
+    "name": "Desktop Cable Organizer",
+    "imagePath": "/templates/cable-organizer-1.png",
+    "success": true
+  },
+  {
+    "id": "pencil-holder-1",
+    "name": "Hexagonal Pencil Cup",
+    "imagePath": "/templates/pencil-holder-1.png",
+    "success": true
+  },
+  {
+    "id": "headphone-hook-1",
+    "name": "Wall Headphone Hook",
+    "imagePath": "/templates/headphone-hook-1.png",
+    "success": true
+  },
+  {
+    "id": "storage-box-1",
+    "name": "Snap-Fit Storage Box",
+    "imagePath": "/templates/storage-box-1.png",
+    "success": true
+  },
+  {
+    "id": "controller-stand-1",
+    "name": "Gaming Controller Stand",
+    "imagePath": "/templates/controller-stand-1.png",
+    "success": true
+  },
+  {
+    "id": "desk-organizer-1",
+    "name": "Modular Desk Organizer",
+    "imagePath": "/templates/desk-organizer-1.png",
+    "success": true
+  },
+  {
+    "id": "tablet-stand-1",
+    "name": "Adjustable Tablet Stand",
+    "imagePath": "/templates/tablet-stand-1.png",
+    "success": true
+  }
+]

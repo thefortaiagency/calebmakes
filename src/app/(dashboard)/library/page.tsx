@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Library, Search, Filter, Printer, Star, Sparkles } from "lucide-react"
+import { Library, Search, Filter, Star, Sparkles } from "lucide-react"
+import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -85,8 +86,8 @@ export default function LibraryPage() {
       </div>
 
       {/* Filters */}
-      <div className="p-4 border-b border-gray-800 flex gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="p-3 sm:p-4 border-b border-gray-800 flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <div className="relative flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <Input
             placeholder="Search templates..."
@@ -96,7 +97,7 @@ export default function LibraryPage() {
           />
         </div>
         <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-48 bg-gray-800 border-gray-700">
+          <SelectTrigger className="w-full sm:w-48 bg-gray-800 border-gray-700">
             <Filter className="w-4 h-4 mr-2" />
             <SelectValue />
           </SelectTrigger>
@@ -111,15 +112,15 @@ export default function LibraryPage() {
       </div>
 
       {/* Grid */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 sm:p-6">
         {/* Featured Section */}
         {featuredTemplates.length > 0 && category === "all" && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Star className="w-5 h-5 text-yellow-400" />
-              <h2 className="text-lg font-semibold">Featured Templates</h2>
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+              <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+              <h2 className="text-base sm:text-lg font-semibold">Featured Templates</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {featuredTemplates.map((template) => (
                 <TemplateCard
                   key={template.id}
@@ -136,9 +137,9 @@ export default function LibraryPage() {
         {/* All Templates */}
         <div>
           {category === "all" && featuredTemplates.length > 0 && (
-            <h2 className="text-lg font-semibold mb-4">All Templates</h2>
+            <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">All Templates</h2>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {(category === "all" ? otherTemplates : filteredTemplates).map((template) => (
               <TemplateCard
                 key={template.id}
@@ -178,41 +179,47 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
           : "bg-gray-900/50 hover:border-cyan-500/30"
       }`}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-3 sm:p-4">
         {/* Preview */}
-        <div className="aspect-square rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 mb-4 flex items-center justify-center group-hover:from-gray-700 group-hover:to-gray-800 transition-colors relative">
-          <Printer className="w-12 h-12 text-gray-600 group-hover:text-cyan-500/50 transition-colors" />
+        <div className="aspect-square rounded-lg overflow-hidden mb-3 sm:mb-4 relative bg-gradient-to-br from-gray-800 to-gray-900">
+          <Image
+            src={`/templates/${template.id}.png`}
+            alt={template.name}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          />
           {featured && (
-            <div className="absolute top-2 right-2">
-              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+            <div className="absolute top-2 right-2 z-10">
+              <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 fill-yellow-400" />
             </div>
           )}
         </div>
 
         {/* Info */}
-        <h3 className={`font-semibold transition-colors ${featured ? "group-hover:text-yellow-400" : "group-hover:text-cyan-400"}`}>
+        <h3 className={`text-sm sm:text-base font-semibold transition-colors line-clamp-1 ${featured ? "group-hover:text-yellow-400" : "group-hover:text-cyan-400"}`}>
           {template.name}
         </h3>
-        <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+        <p className="text-xs sm:text-sm text-gray-500 mt-1 line-clamp-2 hidden sm:block">
           {template.description}
         </p>
 
         {/* Parameters count */}
-        <p className="text-xs text-cyan-400 mt-2">
-          {template.parameters.length} adjustable parameters
+        <p className="text-xs text-cyan-400 mt-1 sm:mt-2">
+          {template.parameters.length} parameters
         </p>
 
         {/* Meta */}
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex gap-2">
-            <Badge variant="secondary" className="text-xs capitalize">
+        <div className="flex items-center justify-between mt-2 sm:mt-3">
+          <div className="flex gap-1 sm:gap-2">
+            <Badge variant="secondary" className="text-[10px] sm:text-xs capitalize px-1.5 sm:px-2">
               {template.difficulty}
             </Badge>
-            <Badge variant="outline" className="text-xs text-gray-400 border-gray-700">
+            <Badge variant="outline" className="text-[10px] sm:text-xs text-gray-400 border-gray-700 px-1.5 sm:px-2 hidden sm:inline-flex">
               {template.estimatedPrintTime}
             </Badge>
           </div>
-          <span className="text-xs text-gray-500">{template.prints.toLocaleString()} prints</span>
+          <span className="text-[10px] sm:text-xs text-gray-500 hidden sm:block">{template.prints.toLocaleString()} prints</span>
         </div>
 
         {/* Action */}
@@ -223,7 +230,8 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
           }}
           disabled={loading}
           variant="secondary"
-          className={`w-full mt-4 ${
+          size="sm"
+          className={`w-full mt-2 sm:mt-4 text-xs sm:text-sm ${
             featured
               ? "bg-yellow-500/10 hover:bg-yellow-500/20 hover:text-yellow-400"
               : "bg-gray-800 hover:bg-cyan-500/20 hover:text-cyan-400"
@@ -231,13 +239,15 @@ function TemplateCard({ template, loading, featured, onCustomize }: TemplateCard
         >
           {loading ? (
             <>
-              <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
-              Loading...
+              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-pulse" />
+              <span className="hidden sm:inline">Loading...</span>
+              <span className="sm:hidden">...</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Customize
+              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Customize</span>
+              <span className="sm:hidden">Open</span>
             </>
           )}
         </Button>
