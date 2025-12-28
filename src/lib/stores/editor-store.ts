@@ -122,6 +122,11 @@ interface EditorActions {
   setCurrentParameterValue: (name: string, value: number | boolean | string) => void
   setModelColor: (color: string) => void
 
+  // Scene object parameter updates
+  setObjectParameter: (objectId: string, paramName: string, value: number | boolean | string) => void
+  setObjectColor: (objectId: string, color: string) => void
+  recompileObject: (objectId: string, newGeometry: GeometryData) => void
+
   // Scene operations
   clearScene: () => void
   getSelectedObjects: () => SceneObject[]
@@ -133,6 +138,7 @@ interface EditorActions {
     geometry: GeometryData,
     code: string,
     parameters: Record<string, number | boolean | string>,
+    parameterDefs: Parameter[],
     color: string
   ) => string
 }
@@ -580,6 +586,36 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
     setModelColor: (modelColor) => set({ modelColor }),
 
+    // Scene object parameter updates
+    setObjectParameter: (objectId, paramName, value) => {
+      set((state) => ({
+        objects: state.objects.map((obj) =>
+          obj.id === objectId
+            ? {
+                ...obj,
+                parameters: { ...obj.parameters, [paramName]: value },
+              }
+            : obj
+        ),
+      }))
+    },
+
+    setObjectColor: (objectId, color) => {
+      set((state) => ({
+        objects: state.objects.map((obj) =>
+          obj.id === objectId ? { ...obj, color } : obj
+        ),
+      }))
+    },
+
+    recompileObject: (objectId, newGeometry) => {
+      set((state) => ({
+        objects: state.objects.map((obj) =>
+          obj.id === objectId ? { ...obj, geometry: newGeometry } : obj
+        ),
+      }))
+    },
+
     // Scene operations
     clearScene: () => {
       set({
@@ -602,7 +638,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     // Import existing geometry as object
-    importGeometryAsObject: (name, geometry, code, parameters, color) => {
+    importGeometryAsObject: (name, geometry, code, parameters, parameterDefs, color) => {
       const id = nanoid()
       const object: SceneObject = {
         id,
@@ -610,6 +646,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         type: "generated",
         jscadCode: code,
         parameters,
+        parameterDefs,
         geometry,
         transform: { ...defaultTransform },
         visible: true,

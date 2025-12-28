@@ -2,15 +2,18 @@
 
 import { useState, useCallback, useEffect } from "react"
 import dynamic from "next/dynamic"
-import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb } from "lucide-react"
+import { Sparkles, Download, Loader2, AlertCircle, Save, Check, ChevronUp, ChevronDown, Lightbulb, Plus, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { useModelStore } from "@/lib/store"
+import { useEditorStore } from "@/lib/stores/editor-store"
 import { compileJSCAD } from "@/lib/jscad/compiler"
 import { downloadSTL } from "@/lib/jscad/stl-export"
 import ParameterControls from "@/components/editor/ParameterControls"
 import HelpDialog from "@/components/editor/HelpDialog"
+import ObjectTree from "@/components/editor/ObjectTree"
+import TransformToolbar from "@/components/editor/TransformToolbar"
 import { createClient } from "@/lib/supabase/client"
 import type { JSCADResponse } from "@/lib/types"
 import type { User } from "@supabase/supabase-js"
@@ -90,6 +93,24 @@ export default function CreatePage() {
     setError,
     modelColor,
   } = useModelStore()
+
+  // Editor store for multi-object scene
+  const importGeometryAsObject = useEditorStore((state) => state.importGeometryAsObject)
+  const editorObjects = useEditorStore((state) => state.objects)
+
+  // Get parameters from model store
+  const parameters = useModelStore((state) => state.parameters)
+
+  // Add generated model to scene as an editable object
+  const handleAddToScene = useCallback(() => {
+    if (!geometry || !response || !code) return
+
+    const name = response.description?.split(" ").slice(0, 4).join(" ") || "Generated Model"
+    importGeometryAsObject(name, geometry, code, parameterValues, parameters, modelColor)
+
+    // Clear the legacy geometry so it doesn't show duplicated
+    setGeometry(null)
+  }, [geometry, response, code, parameterValues, parameters, modelColor, importGeometryAsObject, setGeometry])
 
   // Compile code when it changes or parameters change
   const compileModel = useCallback(async () => {
@@ -338,9 +359,16 @@ export default function CreatePage() {
           )}
 
           {/* Parameters */}
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto min-h-0">
             <ParameterControls />
           </div>
+
+          {/* Scene Objects Panel */}
+          {editorObjects.length > 0 && (
+            <div className="h-40 border-t border-gray-800">
+              <ObjectTree />
+            </div>
+          )}
 
           {/* Print Notes */}
           {response?.notes && response.notes.length > 0 && (
@@ -379,6 +407,17 @@ export default function CreatePage() {
 
           {/* Action Buttons */}
           <div className="absolute top-4 right-4 z-10 flex gap-2">
+            {geometry && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleAddToScene}
+                className="bg-cyan-600/80 hover:bg-cyan-500/80 backdrop-blur-sm"
+              >
+                <Plus className="w-4 h-4 lg:mr-2" />
+                <span className="hidden lg:inline">Add to Scene</span>
+              </Button>
+            )}
             {user && response && (
               <Button
                 variant="secondary"
@@ -401,7 +440,7 @@ export default function CreatePage() {
               variant="secondary"
               size="sm"
               onClick={handleDownload}
-              disabled={!geometry}
+              disabled={!geometry && editorObjects.length === 0}
               className="bg-gray-800/80 backdrop-blur-sm"
             >
               <Download className="w-4 h-4 lg:mr-2" />
@@ -420,6 +459,13 @@ export default function CreatePage() {
           {/* 3D Viewer */}
           <div className="flex-1 relative">
             <ModelViewer />
+
+            {/* Transform Toolbar - shows when objects exist */}
+            {editorObjects.length > 0 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+                <TransformToolbar />
+              </div>
+            )}
           </div>
         </div>
       </div>

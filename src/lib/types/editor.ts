@@ -1,4 +1,4 @@
-import type { GeometryData } from "../types"
+import type { GeometryData, Parameter } from "../types"
 
 // Vector types for transforms
 export type Vector3 = [number, number, number]
@@ -19,6 +19,7 @@ export interface SceneObject {
   // Source code (for regeneration)
   jscadCode: string
   parameters: Record<string, number | boolean | string>
+  parameterDefs?: Parameter[]  // Full parameter definitions (min, max, step, labels, etc.)
 
   // Compiled geometry
   geometry: GeometryData | null
